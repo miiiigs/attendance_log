@@ -17,7 +17,9 @@ export default async function AttendancePage({
 
   const date = typeof params.date === "string" ? params.date : today;
   const query = typeof params.query === "string" ? params.query : "";
-  const rows = await getAttendanceRows({ date, query });
+  const sortBy = params.sortBy === "name" ? "name" : "timeIn";
+  const sortOrder = params.order === "desc" ? "desc" : "asc";
+  const rows = await getAttendanceRows({ date, query, sortBy, sortOrder });
   const presentCount = rows.filter((row) => row.timeIn).length;
   const completedCount = rows.filter((row) => row.timeOut).length;
 
@@ -37,26 +39,14 @@ export default async function AttendancePage({
         </div>
       </div>
 
-      <form className="admin-card flex flex-col gap-4 p-4 md:grid md:grid-cols-[1fr_2fr_auto] md:items-center">
-        <input
-          type="date"
-          name="date"
-          defaultValue={date}
-          className="admin-input"
-        />
-        <input
-          type="text"
-          name="query"
-          defaultValue={query}
-          placeholder="Search by name, email, or username"
-          className="admin-input"
-        />
-        <button className="admin-button">
-          Apply filters
-        </button>
-      </form>
-
-      <AttendanceLogManager date={date} rows={rows} today={today} />
+      <AttendanceLogManager
+        date={date}
+        query={query}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        rows={rows}
+        today={today}
+      />
     </section>
   );
 }

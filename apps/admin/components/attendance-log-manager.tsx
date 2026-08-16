@@ -1,9 +1,10 @@
 "use client";
 
 import { formatAttendanceTime } from "@attendance/shared";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import type { AttendanceRow } from "../lib/data/admin";
+import { useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { ArrowDownAZ, ArrowUpAZ, Clock3, RotateCcw, X } from "lucide-react";
+import type { AttendanceRow, AttendanceSortBy, AttendanceSortOrder } from "../lib/data/admin";
 
 type AttendanceAction = "time_out" | "revert_time_out";
 
@@ -46,15 +47,24 @@ function getErrorMessage(reason: unknown) {
 
 export function AttendanceLogManager({
   date,
+  query,
+  sortBy,
+  sortOrder,
   rows,
   today,
 }: {
   date: string;
+  query: string;
+  sortBy: AttendanceSortBy;
+  sortOrder: AttendanceSortOrder;
   rows: AttendanceRow[];
   today: string;
 }) {
+  const pathname = usePathname();
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [dateValue, setDateValue] = useState(date);
+  const [queryValue, setQueryValue] = useState(query);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,11 +75,64 @@ export function AttendanceLogManager({
   const selectedRows = rows.filter((row) => activeSelectedIds.includes(row.id));
   const selectedTimeOutRows = selectedRows.filter((row) => row.canTimeOut);
   const selectedRevertRows = selectedRows.filter((row) => row.canRevertTimeOut);
-  const openRows = rows.filter((row) => row.canTimeOut);
-  const completedRows = rows.filter((row) => row.canRevertTimeOut);
   const canManage = date === today;
   const busy = isSubmitting || isRefreshing;
   const allEligibleSelected = actionableRows.length > 0 && actionableRows.every((row) => activeSelectedIds.includes(row.id));
+  const showFloatingActions = canManage && activeSelectedIds.length > 0;
+  const hasRevertAction = selectedRevertRows.length > 0;
+  const hasTimeOutAction = selectedTimeOutRows.length > 0;
+
+  useEffect(() => {
+    setDateValue(date);
+  }, [date]);
+
+  useEffect(() => {
+    setQueryValue(query);
+  }, [query]);
+
+  function replaceFilters(nextFilters: {
+    date?: string;
+    query?: string;
+    sortBy?: AttendanceSortBy;
+    sortOrder?: AttendanceSortOrder;
+  }) {
+    const nextDate = nextFilters.date ?? dateValue;
+    const nextQuery = nextFilters.query ?? queryValue;
+    const nextSortBy = nextFilters.sortBy ?? sortBy;
+    const nextSortOrder = nextFilters.sortOrder ?? sortOrder;
+    const params = new URLSearchParams();
+
+    params.set("date", nextDate);
+
+    if (nextQuery.trim()) {
+      params.set("query", nextQuery.trim());
+    }
+
+    if (nextSortBy !== "timeIn") {
+      params.set("sortBy", nextSortBy);
+    }
+
+    if (nextSortOrder !== "asc") {
+      params.set("order", nextSortOrder);
+    }
+
+    const nextUrl = `${pathname}?${params.toString()}`;
+    startTransition(() => {
+      router.replace(nextUrl, { scroll: false });
+    });
+  }
+
+  useEffect(() => {
+    if (queryValue === query) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      replaceFilters({ query: queryValue });
+    }, 180);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [dateValue, pathname, query, queryValue, router, sortBy, sortOrder]);
 
   function toggleSelection(id: string) {
     setSelectedIds((current) => (
@@ -86,13 +149,8 @@ export function AttendanceLogManager({
     setSelectedIds(actionableRows.map((row) => row.id));
   }
 
-  async function submitAction(action: AttendanceAction, mode: "all" | "selected") {
-    const targetRows =
-      action === "time_out"
-        ? mode === "all"
-          ? openRows
-          : selectedTimeOutRows
-        : selectedRevertRows;
+  async function submitAction(action: AttendanceAction) {
+    const targetRows = action === "time_out" ? selectedTimeOutRows : selectedRevertRows;
     const targetCount = targetRows.length;
 
     if (!canManage) {
@@ -104,9 +162,7 @@ export function AttendanceLogManager({
     if (targetCount === 0) {
       setError(
         action === "time_out"
-          ? mode === "all"
-            ? "There are no timed-in users to time out."
-            : "Select at least one timed-in person first."
+          ? "Select at least one timed-in person first."
           : "Select at least one completed time-out to revert.",
       );
       setSuccess(null);
@@ -115,9 +171,7 @@ export function AttendanceLogManager({
 
     const confirmationMessage =
       action === "time_out"
-        ? mode === "all"
-          ? `Time out all ${targetCount} users who are still timed in for ${date}?`
-          : `Time out ${targetCount} selected user${targetCount === 1 ? "" : "s"} for ${date}?`
+        ? `Time out ${targetCount} selected user${targetCount === 1 ? "" : "s"} for ${date}?`
         : `Revert the time out for ${targetCount} selected user${targetCount === 1 ? "" : "s"} on ${date}?`;
 
     if (!window.confirm(confirmationMessage)) {
@@ -137,8 +191,8 @@ export function AttendanceLogManager({
         body: JSON.stringify({
           action,
           date,
-          mode,
-          userIds: mode === "selected" || action === "revert_time_out" ? targetRows.map((row) => row.id) : undefined,
+          mode: "selected",
+          userIds: targetRows.map((row) => row.id),
         }),
       });
 
@@ -173,26 +227,8 @@ export function AttendanceLogManager({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="admin-card flex flex-col gap-4 p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <div>
-              <p className="admin-eyebrow">Manual time-out</p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--foreground)]">Manage open and completed logs</h2>
-            </div>
-            <p className="admin-inline-note max-w-2xl">
-              Time out users who forgot to log out, or revert a mistaken time-out before the user scans again.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <span className="admin-chip admin-chip-soft">{openRows.length} open logs</span>
-            <span className="admin-chip admin-chip-success">{completedRows.length} completed</span>
-            <span className="admin-chip admin-chip-warning">{activeSelectedIds.length} selected</span>
-          </div>
-        </div>
-
+    <div className="space-y-4">
+      <div className="space-y-3">
         {!canManage ? (
           <div className="admin-card-muted p-4 text-sm text-[var(--muted)]">
             Manual attendance actions are enabled only for today&apos;s Daily Logs. Switch the date back to {today} to use these actions.
@@ -210,40 +246,66 @@ export function AttendanceLogManager({
             {error}
           </div>
         ) : null}
+      </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <p className="admin-inline-note">
-            {openRows.length || completedRows.length
-              ? "Selected open logs can be timed out, and selected completed logs can be reverted if clicked by mistake."
-              : "There are no actionable logs for this date."}
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="admin-button-secondary"
-              disabled={!canManage || !selectedRevertRows.length || busy}
-              onClick={() => submitAction("revert_time_out", "selected")}
-            >
-              {busy ? "Updating..." : "Revert selected time-out"}
-            </button>
-            <button
-              type="button"
-              className="admin-button-secondary"
-              disabled={!canManage || !selectedTimeOutRows.length || busy}
-              onClick={() => submitAction("time_out", "selected")}
-            >
-              {busy ? "Updating..." : "Time out selected"}
-            </button>
-            <button
-              type="button"
-              className="admin-button-danger"
-              disabled={!canManage || !openRows.length || busy}
-              onClick={() => submitAction("time_out", "all")}
-            >
-              {busy ? "Updating..." : "Time out everyone"}
-            </button>
+      <div className="admin-card flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
+          <div className="w-full xl:max-w-[220px]">
+            <label className="admin-eyebrow mb-2 block">Date</label>
+            <input
+              type="date"
+              value={dateValue}
+              onChange={(event) => {
+                const nextDate = event.target.value;
+                setDateValue(nextDate);
+                replaceFilters({ date: nextDate });
+              }}
+              className="admin-input"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end xl:flex-1">
+            <div className="w-full sm:flex-1">
+              <label className="admin-eyebrow mb-2 block">Search</label>
+              <input
+                type="text"
+                value={queryValue}
+                onChange={(event) => setQueryValue(event.target.value)}
+                placeholder="Search by name, email, or username"
+                className="admin-input"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 sm:pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => replaceFilters({ sortBy: sortBy === "timeIn" ? "name" : "timeIn" })}
+                  aria-label={sortBy === "timeIn" ? "Sorting by time in" : "Sorting by name"}
+                  title={sortBy === "timeIn" ? "Sorting by time in" : "Sorting by name"}
+                  className={`admin-button-secondary ${
+                    sortBy === "timeIn" || sortBy === "name" ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]" : ""
+                  } min-w-[46px] px-3`}
+                >
+                  {sortBy === "timeIn" ? <Clock3 className="h-4 w-4" /> : <span className="text-sm font-black">N</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => replaceFilters({ sortOrder: sortOrder === "asc" ? "desc" : "asc" })}
+                  aria-label={sortOrder === "asc" ? "Ascending order" : "Descending order"}
+                  title={sortOrder === "asc" ? "Ascending order" : "Descending order"}
+                  className={`admin-button-secondary ${
+                    "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  } min-w-[46px] px-3`}
+                >
+                  {sortOrder === "asc" ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+                </button>
+            </div>
           </div>
         </div>
+
+        <p className="text-sm text-[var(--muted)]">
+          {isRefreshing ? "Updating results..." : "Results update automatically when you change the date, search, or sorting."}
+        </p>
       </div>
 
       <div className="admin-table-shell">
@@ -323,9 +385,6 @@ export function AttendanceLogManager({
                           {row.state}
                           {row.late ? " • Late" : ""}
                         </span>
-                        {row.canRevertTimeOut ? (
-                          <p className="mt-2 text-xs text-[var(--muted)]">Eligible for time-out reversal</p>
-                        ) : null}
                       </td>
                     </tr>
                   );
@@ -340,6 +399,64 @@ export function AttendanceLogManager({
           </div>
         )}
       </div>
+
+      {showFloatingActions ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+          <div className="pointer-events-auto md:hidden">
+            <div className="flex items-center gap-2">
+              {hasRevertAction ? (
+                <button
+                  type="button"
+                  className="admin-button-secondary min-w-[46px] px-3"
+                  aria-label="Revert selected time-out"
+                  disabled={busy}
+                  onClick={() => submitAction("revert_time_out")}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              ) : null}
+              {hasTimeOutAction ? (
+                <button
+                  type="button"
+                  className="admin-button-danger min-w-[46px] px-3"
+                  aria-label="Time out selected"
+                  disabled={busy}
+                  onClick={() => submitAction("time_out")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="pointer-events-auto hidden md:block">
+            <div className="flex items-center gap-2">
+              {hasRevertAction ? (
+                <button
+                  type="button"
+                  className="admin-button-secondary min-w-[190px]"
+                  disabled={busy}
+                  onClick={() => submitAction("revert_time_out")}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {busy ? "Updating..." : "Revert selected time-out"}
+                </button>
+              ) : null}
+              {hasTimeOutAction ? (
+                <button
+                  type="button"
+                  className="admin-button-danger min-w-[170px]"
+                  disabled={busy}
+                  onClick={() => submitAction("time_out")}
+                >
+                  <X className="h-4 w-4" />
+                  {busy ? "Updating..." : "Time out selected"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

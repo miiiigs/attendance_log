@@ -27,6 +27,9 @@ export interface AttendanceRow {
   canRevertTimeOut: boolean;
 }
 
+export type AttendanceSortBy = "timeIn" | "name";
+export type AttendanceSortOrder = "asc" | "desc";
+
 export async function getDashboardData() {
   const supabase = await createSupabaseServerClient();
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -141,6 +144,8 @@ export async function getEmployeeById(id: string) {
 export async function getAttendanceRows(params: {
   date: string;
   query?: string;
+  sortBy?: AttendanceSortBy;
+  sortOrder?: AttendanceSortOrder;
 }): Promise<AttendanceRow[]> {
   const supabase = await createSupabaseServerClient();
   const [{ data: employees }, { data: records }, { data: settings }] = await Promise.all([
@@ -164,8 +169,10 @@ export async function getAttendanceRows(params: {
 
   const recordMap = new Map((records ?? []).map((record) => [record.user_id, record]));
   const search = params.query?.trim().toLowerCase();
+  const sortBy = params.sortBy ?? "timeIn";
+  const sortOrder = params.sortOrder ?? "asc";
 
-  return (employees ?? [])
+  const rows = (employees ?? [])
     .filter((employee) => {
       const searchMatches =
         !search ||
@@ -194,6 +201,42 @@ export async function getAttendanceRows(params: {
         ),
       };
     });
+
+  function compareNames(first: AttendanceRow, second: AttendanceRow) {
+    return first.name.localeCompare(second.name, undefined, { sensitivity: "base" });
+  }
+
+  function compareTimeIn(first: AttendanceRow, second: AttendanceRow) {
+    if (first.timeIn && second.timeIn) {
+      return first.timeIn.localeCompare(second.timeIn);
+    }
+
+    if (first.timeIn && !second.timeIn) {
+      return -1;
+    }
+
+    if (!first.timeIn && second.timeIn) {
+      return 1;
+    }
+
+    return 0;
+  }
+
+  rows.sort((first, second) => {
+    const direction = sortOrder === "asc" ? 1 : -1;
+    const primaryComparison =
+      sortBy === "name"
+        ? compareNames(first, second)
+        : compareTimeIn(first, second);
+
+    if (primaryComparison !== 0) {
+      return primaryComparison * direction;
+    }
+
+    return compareNames(first, second);
+  });
+
+  return rows;
 }
 
 export async function getSettings() {
