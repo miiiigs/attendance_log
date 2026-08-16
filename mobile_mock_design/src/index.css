@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-warm-bg: #F8F7F4;
+  --color-warm-border: #E6E4DE;
+  --color-sidebar-bg: #0B1D11;
+  --color-sidebar-active: #1A4D2E;
+  --color-sidebar-text: rgba(255, 255, 255, 0.60);
+  --color-sidebar-text-active: #FFFFFF;
+  --color-primary: #166534;
+  --color-primary-hover: #14532D;
+  --color-primary-light: #DCFCE7;
+  --color-primary-subtle: #F0FDF4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-color: #F8F7F4;
+  color: #18181B;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4D2CB;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #AEACA5;
+}
+
+@keyframes scanline {
+  0% { top: 16px; }
+  50% { top: calc(100% - 16px); }
+  100% { top: 16px; }
+}
+
+.animate-scanline {
+  animation: scanline 2s ease-in-out infinite;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
+  cursor: pointer;
+}

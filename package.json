@@ -1,0 +1,24 @@
+{
+  "name": "attendance-log",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "scripts": {
+    "dev:admin": "pnpm -C apps/admin dev",
+    "dev:mobile": "pnpm -C apps/mobile start",
+    "build": "pnpm -C apps/admin build",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "sync:auth-usernames": "tsx scripts/sync-auth-usernames.ts",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.56.0",
+    "supabase": "^2.39.2",
+    "tsx": "^4.20.3"
+  }
+}

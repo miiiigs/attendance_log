@@ -1,0 +1,334 @@
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { ORGANIZATION_NAME, ORGANIZATION_SHORT_NAME, personLoginSchema } from "@attendance/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { mobileTheme } from "../../components/mobile-ui";
+import { supabase } from "../../lib/supabase/client";
+
+const scppaLogo = require("../../assets/images/scppa-logo.png");
+
+function getAdminAppUrl() {
+  const url = process.env.EXPO_PUBLIC_ADMIN_APP_URL?.trim();
+
+  if (!url) {
+    throw new Error("Missing EXPO_PUBLIC_ADMIN_APP_URL.");
+  }
+
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+export default function LoginScreen() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  async function handleLogin() {
+    const parsed = personLoginSchema.safeParse({ username, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Invalid login details.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(parsed.data),
+    });
+
+    const result = (await response.json()) as {
+      error?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+
+    if (!response.ok || !result.access_token || !result.refresh_token) {
+      setError(result.error ?? "Unable to sign in.");
+      setLoading(false);
+      return;
+    }
+
+    const { error: sessionError, data } = await supabase.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    });
+
+    if (sessionError || !data.session?.user) {
+      setError(sessionError?.message ?? "Unable to start your session.");
+      setLoading(false);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", data.session.user.id)
+      .maybeSingle();
+
+    if (!profile || profile.role !== "person") {
+      await supabase.auth.signOut();
+      setError("This mobile app is for people accounts only.");
+      setLoading(false);
+      return;
+    }
+
+    if (profile.status !== "active") {
+      await supabase.auth.signOut();
+      setError("Your account is inactive.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <StatusBar style="dark" />
+      <View style={styles.topBar} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.brandBlock}>
+            <View style={styles.brandMark}>
+              <Image source={scppaLogo} style={styles.brandImage} resizeMode="contain" />
+            </View>
+            <Text style={styles.brandTitle}>{ORGANIZATION_SHORT_NAME} Portal</Text>
+            <Text style={styles.brandOrg}>{ORGANIZATION_NAME}</Text>
+            <Text style={styles.brandSubtitle}>Sign in to your account</Text>
+          </View>
+
+          <View style={styles.form}>
+            {error ? (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorCardTitle}>Unable to sign in</Text>
+                <Text style={styles.errorCardText}>{error}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Username</Text>
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                keyboardType="number-pad"
+                placeholder="Enter your username"
+                placeholderTextColor={mobileTheme.mutedSoft}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <View style={styles.passwordWrap}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="Enter your password"
+                  placeholderTextColor={mobileTheme.mutedSoft}
+                  style={styles.passwordInput}
+                />
+                <Pressable onPress={() => setShowPassword((value) => !value)} style={styles.passwordToggle}>
+                  <Text style={styles.passwordToggleText}>{showPassword ? "Hide" : "Show"}</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={handleLogin}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.button,
+                pressed && !loading ? styles.buttonPressed : null,
+                loading ? styles.buttonDisabled : null,
+              ]}
+            >
+              {loading ? (
+                <View style={styles.buttonInner}>
+                  <ActivityIndicator color={mobileTheme.white} />
+                  <Text style={styles.buttonText}>Signing in…</Text>
+                </View>
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: mobileTheme.bg,
+  },
+  topBar: {
+    height: 4,
+    backgroundColor: mobileTheme.accent,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: mobileTheme.bg,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 44,
+    paddingBottom: 28,
+  },
+  brandBlock: {
+    marginBottom: 44,
+  },
+  brandMark: {
+    width: 78,
+    height: 78,
+    borderRadius: 20,
+    backgroundColor: mobileTheme.panel,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+    padding: 8,
+  },
+  brandImage: {
+    width: 60,
+    height: 60,
+  },
+  brandTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "800",
+    color: mobileTheme.text,
+    letterSpacing: -0.8,
+  },
+  brandOrg: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: mobileTheme.muted,
+    fontWeight: "600",
+  },
+  brandSubtitle: {
+    marginTop: 10,
+    fontSize: 15,
+    color: mobileTheme.muted,
+    fontWeight: "500",
+  },
+  form: {
+    gap: 16,
+  },
+  field: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: "#52525B",
+  },
+  input: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: mobileTheme.text,
+    fontWeight: "500",
+  },
+  passwordWrap: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    backgroundColor: mobileTheme.panel,
+    paddingLeft: 16,
+    paddingRight: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: mobileTheme.text,
+    fontWeight: "500",
+  },
+  passwordToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  passwordToggleText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: mobileTheme.muted,
+  },
+  errorCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: mobileTheme.dangerBorder,
+    backgroundColor: mobileTheme.dangerSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 4,
+  },
+  errorCardTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: mobileTheme.danger,
+  },
+  errorCardText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: mobileTheme.danger,
+  },
+  button: {
+    marginTop: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    backgroundColor: mobileTheme.accent,
+    minHeight: 56,
+    paddingHorizontal: 18,
+  },
+  buttonPressed: {
+    backgroundColor: mobileTheme.accentPressed,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  buttonText: {
+    color: mobileTheme.white,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});

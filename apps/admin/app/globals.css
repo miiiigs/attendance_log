@@ -1,0 +1,434 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #f8f7f4;
+  --canvas-strong: #f1eee7;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-strong: #faf9f6;
+  --surface-muted: #f4f2ec;
+  --foreground: #16181d;
+  --muted: #6d7178;
+  --border: #e7e3da;
+  --accent: #166534;
+  --accent-foreground: #f8fff9;
+  --accent-soft: #f0fdf4;
+  --accent-border: #bbf7d0;
+  --sidebar: #0b1d11;
+  --sidebar-active: #1a4d2e;
+  --sidebar-text: rgba(255, 255, 255, 0.58);
+  --sidebar-divider: rgba(255, 255, 255, 0.08);
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --shadow-soft: 0 24px 70px rgba(37, 41, 46, 0.08);
+  --shadow-panel: 0 18px 48px rgba(37, 41, 46, 0.06);
+}
+
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(22, 101, 52, 0.16), transparent 30%),
+    linear-gradient(180deg, #fbfaf7 0%, #f7f5ef 50%, #f2eee6 100%);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
+
+*::selection {
+  background: rgba(22, 101, 52, 0.14);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d2cec3;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b8b2a5;
+}
+
+.admin-shell-bg {
+  background:
+    radial-gradient(circle at top left, rgba(22, 101, 52, 0.18), transparent 28%),
+    linear-gradient(180deg, #fbfaf7 0%, #f7f5ef 45%, #f2eee6 100%);
+}
+
+.admin-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 24px;
+  box-shadow: var(--shadow-panel);
+}
+
+.admin-card-muted {
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border-radius: 20px;
+}
+
+.admin-card-flat {
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 18px;
+}
+
+.admin-eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.admin-page-title {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.admin-page-subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.admin-kpi {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 22px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-panel);
+}
+
+.admin-kpi-label {
+  color: #90949b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.admin-input,
+.admin-select,
+.admin-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 14px;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.admin-input,
+.admin-select {
+  min-height: 46px;
+  padding: 0.75rem 0.95rem;
+}
+
+.admin-textarea {
+  min-height: 140px;
+  padding: 0.9rem 0.95rem;
+}
+
+.admin-input::placeholder,
+.admin-textarea::placeholder {
+  color: #b0b4bb;
+}
+
+.admin-input:focus,
+.admin-select:focus,
+.admin-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(22, 101, 52, 0.1), inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.admin-button,
+.admin-button-secondary,
+.admin-button-ghost,
+.admin-button-danger,
+.admin-button-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 14px;
+  padding: 0.8rem 1.1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+}
+
+.admin-button:hover,
+.admin-button-secondary:hover,
+.admin-button-ghost:hover,
+.admin-button-danger:hover,
+.admin-button-warning:hover {
+  transform: translateY(-1px);
+}
+
+.admin-button {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.admin-button:hover {
+  background: #14532d;
+}
+
+.admin-button-secondary {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  color: #4b5560;
+}
+
+.admin-button-secondary:hover {
+  background: #f1efe8;
+}
+
+.admin-button-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.admin-button-ghost:hover {
+  background: rgba(17, 24, 39, 0.04);
+  color: var(--foreground);
+}
+
+.admin-button-danger {
+  background: var(--danger-soft);
+  border: 1px solid #fecaca;
+  color: var(--danger);
+}
+
+.admin-button-danger:hover {
+  background: #fee2e2;
+}
+
+.admin-button-warning {
+  background: var(--warning-soft);
+  border: 1px solid #fde68a;
+  color: var(--warning);
+}
+
+.admin-button[disabled],
+.admin-button-secondary[disabled],
+.admin-button-ghost[disabled],
+.admin-button-danger[disabled],
+.admin-button-warning[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  padding: 0.42rem 0.78rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.admin-chip-soft {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: #535862;
+}
+
+.admin-chip-success {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+.admin-chip-warning {
+  background: var(--warning-soft);
+  border: 1px solid #fde68a;
+  color: var(--warning);
+}
+
+.admin-chip-danger {
+  background: var(--danger-soft);
+  border: 1px solid #fecaca;
+  color: var(--danger);
+}
+
+.admin-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(22, 101, 52, 0.1);
+  color: var(--accent);
+}
+
+.admin-table-shell {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 20px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table thead tr {
+  background: var(--surface-strong);
+  border-bottom: 1px solid #f0ede5;
+}
+
+.admin-table th {
+  color: #9a9ea6;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.95rem 1.25rem;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f5f2ea;
+  vertical-align: middle;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table-row {
+  transition: background-color 0.18s ease;
+}
+
+.admin-table-row:hover {
+  background: #fbfaf7;
+}
+
+.admin-table-row-selected {
+  background: rgba(22, 101, 52, 0.05);
+}
+
+.admin-table-row-selected:hover {
+  background: rgba(22, 101, 52, 0.08);
+}
+
+.admin-empty-state {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.admin-field-label {
+  margin-bottom: 0.45rem;
+  display: block;
+  color: #626771;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-inline-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.admin-checkbox {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.admin-checkbox::after {
+  content: "";
+  width: 0.3rem;
+  height: 0.55rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.14s ease;
+  margin-top: -1px;
+}
+
+.admin-checkbox:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.admin-checkbox:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.admin-checkbox:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(22, 101, 52, 0.12);
+}
+
+.admin-checkbox:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}

@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SCPPA Portal",
+    "slug": "attendance-logger-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/scppa-logo.png",
+    "scheme": "attendance",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Attendance Logger uses the camera to scan time in and time out QR codes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F8F7F4",
+        "foregroundImage": "./assets/images/scppa-logo.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/scppa-logo.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/scppa-logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F8F7F4"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
