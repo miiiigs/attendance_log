@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -103,8 +104,17 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
       <View style={styles.topBar} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
-        <View style={styles.content}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+        style={styles.container}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <View style={styles.brandBlock}>
             <View style={styles.brandMark}>
               <Image source={scppaLogo} style={styles.brandImage} resizeMode="contain" />
@@ -173,7 +183,7 @@ export default function LoginScreen() {
               )}
             </Pressable>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -193,29 +203,25 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.bg,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
+    justifyContent: "center",
     paddingHorizontal: 28,
     paddingTop: 44,
-    paddingBottom: 28,
+    paddingBottom: 40,
   },
   brandBlock: {
     marginBottom: 44,
   },
   brandMark: {
-    width: 78,
-    height: 78,
-    borderRadius: 20,
-    backgroundColor: mobileTheme.panel,
-    borderWidth: 1,
-    borderColor: mobileTheme.border,
+    width: 84,
+    height: 84,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 18,
-    padding: 8,
+    marginBottom: 16,
   },
   brandImage: {
-    width: 60,
-    height: 60,
+    width: 84,
+    height: 84,
   },
   brandTitle: {
     fontSize: 30,

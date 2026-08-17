@@ -14,14 +14,12 @@
       }
     },
     "android": {
+      "package": "com.scppa.portal",
       "adaptiveIcon": {
         "backgroundColor": "#F8F7F4",
         "foregroundImage": "./assets/images/scppa-logo.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "CAMERA"
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
@@ -35,13 +33,24 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/scppa-logo.png",
+          "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#F8F7F4"
+          "backgroundColor": "#F8F7F4",
+          "dark": {
+            "image": "./assets/images/scppa-logo.png",
+            "backgroundColor": "#F8F7F4"
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "06f8696c-9388-43b3-b51c-54beef6a2b9d"
+      }
     }
   }
 }

@@ -328,18 +328,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerLogoWrap: {
-    width: 56,
-    height: 56,
-    borderWidth: 1,
-    borderColor: "#D8D1C3",
-    backgroundColor: "#FFFFFF",
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
-    padding: 6,
   },
   headerLogo: {
-    width: 42,
-    height: 42,
+    width: 48,
+    height: 48,
   },
   headerTitleWrap: {
     flex: 1,
