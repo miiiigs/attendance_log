@@ -48,10 +48,10 @@ describe("POST /api/admin/people/[id]/credentials", () => {
     generateTemporaryPassword.mockReturnValue("K9pQ2xM7aR4N");
     buildOnboardingEmail.mockReturnValue({
       recipient: "juan@example.com",
-      subject: "Your Example Company Attendance Account",
+      subject: "Your SCPAA Attendance Account",
       textBody: "Hello Juan,\n\nYour attendance account has been created.",
       htmlBody: "<p>Hello Juan</p>",
-      fullEmailText: "To: juan@example.com\nSubject: Your Example Company Attendance Account\n\nHello Juan",
+      fullEmailText: "To: juan@example.com\nSubject: Your SCPAA Attendance Account\n\nHello Juan",
     });
   });
 
@@ -84,7 +84,7 @@ describe("POST /api/admin/people/[id]/credentials", () => {
         username: "202600021",
         temporaryPassword: "K9pQ2xM7aR4N",
         email: "juan@example.com",
-        subject: "Your Example Company Attendance Account",
+        subject: "Your SCPAA Attendance Account",
       }),
     );
     expect(body).toMatchObject({
@@ -132,7 +132,7 @@ describe("POST /api/admin/people/[id]/credentials", () => {
       onboarding: {
         deliveryStatus: "unavailable",
         recipient: "juan@example.com",
-        subject: "Your Example Company Attendance Account",
+        subject: "Your SCPAA Attendance Account",
       },
     });
   });

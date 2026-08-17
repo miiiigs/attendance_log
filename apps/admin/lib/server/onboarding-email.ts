@@ -51,9 +51,7 @@ function getN8nConfig() {
 }
 
 export function buildOnboardingEmail(input: BuildOnboardingEmailInput): OnboardingEmailContent {
-  const subject = input.organizationName?.trim()
-    ? `Your ${input.organizationName.trim()} Attendance Account`
-    : "Your Attendance Account";
+  const subject = "Your SCPAA Attendance Account";
 
   const lines = [
     `Hello ${input.firstName},`,

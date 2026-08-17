@@ -45,10 +45,10 @@ describe("POST /api/admin/people", () => {
     });
     buildOnboardingEmail.mockReturnValue({
       recipient: "juan@example.com",
-      subject: "Your Example Company Attendance Account",
+      subject: "Your SCPAA Attendance Account",
       textBody: "Hello Juan,\n\nYour attendance account has been created.",
       htmlBody: "<p>Hello Juan</p>",
-      fullEmailText: "To: juan@example.com\nSubject: Your Example Company Attendance Account\n\nHello Juan",
+      fullEmailText: "To: juan@example.com\nSubject: Your SCPAA Attendance Account\n\nHello Juan",
     });
   });
 
@@ -100,7 +100,7 @@ describe("POST /api/admin/people", () => {
       onboarding: {
         deliveryStatus: "sent",
         recipient: "juan@example.com",
-        subject: "Your Example Company Attendance Account",
+        subject: "Your SCPAA Attendance Account",
       },
     });
     expect(attemptAutomatedOnboardingEmail).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe("POST /api/admin/people", () => {
         username: "202600001",
         temporaryPassword: "G7kP2mQ9xL4A",
         organizationName: "Example Company",
-        subject: "Your Example Company Attendance Account",
+        subject: "Your SCPAA Attendance Account",
       }),
     );
   });
@@ -149,7 +149,7 @@ describe("POST /api/admin/people", () => {
       onboarding: {
         deliveryStatus: "not_configured",
         recipient: "juan@example.com",
-        subject: "Your Example Company Attendance Account",
+        subject: "Your SCPAA Attendance Account",
         body: "Hello Juan,\n\nYour attendance account has been created.",
       },
     });

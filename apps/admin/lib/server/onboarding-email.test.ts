@@ -28,7 +28,7 @@ describe("onboarding-email", () => {
       organizationName: "ABC Company",
     });
 
-    expect(email.subject).toBe("Your ABC Company Attendance Account");
+    expect(email.subject).toBe("Your SCPAA Attendance Account");
     expect(email.textBody).toContain("Hello Juan,");
     expect(email.textBody).toContain("202600001");
     expect(email.textBody).toContain("G7kP2mQ9xL4A");
@@ -74,7 +74,7 @@ describe("onboarding-email", () => {
     expect(JSON.parse(String(request?.body))).toMatchObject({
       event: "person.created",
       to: "juan@example.com",
-      subject: "Your Example Company Attendance Account",
+      subject: "Your SCPAA Attendance Account",
       textBody: expect.stringContaining("Hello Juan,"),
       firstName: "Juan",
       lastName: "Dela Cruz",

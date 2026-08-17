@@ -203,88 +203,22 @@ export function EmployeeForm({ mode, person }: PersonFormProps) {
             </div>
 
             <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/75 p-4">
-              <div>
-                <p className="admin-field-label">Subject</p>
-                <p className="mt-2">{createdCredentials.onboarding.subject}</p>
-              </div>
-              <div>
-                <p className="admin-field-label">Email Body</p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm">{createdCredentials.onboarding.body}</pre>
-              </div>
+              <EmailPreviewCard
+                label="Subject"
+                value={createdCredentials.onboarding.subject}
+                onCopy={() => copyText(createdCredentials.onboarding.subject).catch(() => undefined)}
+              />
+              <EmailPreviewCard
+                label="Email Body"
+                value={createdCredentials.onboarding.body}
+                onCopy={() => copyText(createdCredentials.onboarding.body).catch(() => undefined)}
+                multiline
+              />
             </div>
           </div>
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => copyText(createdCredentials.onboarding.recipient).catch(() => undefined)}
-            className="admin-button-secondary"
-          >
-            <Mail className="h-4 w-4" />
-            Copy Email
-          </button>
-          <button
-            type="button"
-            onClick={() => copyText(createdCredentials.username).catch(() => undefined)}
-            className="admin-button-secondary"
-          >
-            <Copy className="h-4 w-4" />
-            Copy Username
-          </button>
-          <button
-            type="button"
-            onClick={() => copyText(createdCredentials.temporaryPassword).catch(() => undefined)}
-            className="admin-button-secondary"
-          >
-            <Key className="h-4 w-4" />
-            Copy Password
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              copyText(`Username: ${createdCredentials.username}\nTemporary Password: ${createdCredentials.temporaryPassword}`).catch(() => undefined)
-            }
-            className="admin-button-secondary"
-          >
-            <Copy className="h-4 w-4" />
-            Copy Credentials
-          </button>
-          {automationUnavailable ? (
-            <>
-              <button
-                type="button"
-                onClick={() => copyText(createdCredentials.onboarding.subject).catch(() => undefined)}
-                className="admin-button-secondary"
-              >
-                <Copy className="h-4 w-4" />
-                Copy Subject
-              </button>
-              <button
-                type="button"
-                onClick={() => copyText(createdCredentials.onboarding.body).catch(() => undefined)}
-                className="admin-button-secondary"
-              >
-                <Copy className="h-4 w-4" />
-                Copy Email Body
-              </button>
-              <button
-                type="button"
-                onClick={() => copyText(createdCredentials.onboarding.fullEmail).catch(() => undefined)}
-                className="admin-button-secondary"
-              >
-                <Copy className="h-4 w-4" />
-                Copy Full Email
-              </button>
-              <a
-                href={`mailto:${encodeURIComponent(createdCredentials.onboarding.recipient)}?subject=${encodeURIComponent(createdCredentials.onboarding.subject)}&body=${encodeURIComponent(createdCredentials.onboarding.body)}`}
-                className="admin-button-secondary"
-              >
-                <Mail className="h-4 w-4" />
-                Open Email App
-              </a>
-            </>
-          ) : null}
           {automationUnavailable ? (
             <button
               type="button"
@@ -363,6 +297,39 @@ export function EmployeeForm({ mode, person }: PersonFormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+function EmailPreviewCard({
+  label,
+  value,
+  onCopy,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  onCopy: () => void;
+  multiline?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="admin-field-label">{label}</p>
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={`Copy ${label}`}
+          className="rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"
+        >
+          <Copy className="h-4 w-4" />
+        </button>
+      </div>
+      {multiline ? (
+        <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-7 text-[var(--foreground)]">{value}</pre>
+      ) : (
+        <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">{value}</p>
+      )}
+    </div>
   );
 }
 
