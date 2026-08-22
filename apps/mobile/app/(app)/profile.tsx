@@ -1,5 +1,5 @@
-import { Image, StyleSheet, Text, View } from "react-native";
-import { getFullName, ORGANIZATION_NAME, ORGANIZATION_SHORT_NAME } from "@attendance/shared";
+import { StyleSheet, Text, View } from "react-native";
+import { getFullName } from "@attendance/shared";
 import {
   MobileCard,
   MobileHeading,
@@ -13,35 +13,33 @@ import {
 } from "../../components/mobile-ui";
 import { useAuth } from "../../providers/auth-provider";
 
-const scppaLogo = require("../../assets/images/scppa-logo.png");
-
 export default function ProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, membership, organization, signOut } = useAuth();
 
-  if (!profile) {
+  if (!profile || !membership) {
     return null;
   }
 
-  const initials = `${profile.first_name[0] ?? ""}${profile.last_name[0] ?? ""}`.toUpperCase();
+  const initials = `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase();
 
   return (
     <MobileShell route="/profile">
-      <MobileHeading eyebrow={ORGANIZATION_SHORT_NAME} title="Profile" subtitle="Review your account details and session status." />
+      <MobileHeading
+        eyebrow={organization?.code ?? ""}
+        title="Profile"
+        subtitle="Review your account details and session status."
+      />
 
       <View style={styles.identityCard}>
-        <View style={styles.portalBadge}>
-          <Image source={scppaLogo} style={styles.portalLogo} resizeMode="contain" />
-          <Text style={styles.portalBadgeText}>{ORGANIZATION_SHORT_NAME} Portal</Text>
-        </View>
         <View style={styles.identityBadge}>
           <Text style={styles.identityBadgeText}>{initials}</Text>
         </View>
-        <Text style={styles.identityName}>{getFullName(profile.first_name, profile.last_name)}</Text>
-        <Text style={styles.identitySub}>{profile.email}</Text>
+        <Text style={styles.identityName}>{getFullName(profile.firstName, profile.lastName) || membership.username}</Text>
+        <Text style={styles.identitySub}>{organization?.name ?? ""}</Text>
         <View style={styles.identityStatus}>
           <MobileStatusChip
-            label={profile.status === "active" ? "Active" : "Inactive"}
-            tone={profile.status === "active" ? "success" : "danger"}
+            label={membership.status === "active" ? "Active" : "Inactive"}
+            tone={membership.status === "active" ? "success" : "danger"}
           />
         </View>
       </View>
@@ -49,17 +47,20 @@ export default function ProfileScreen() {
       <MobileCard>
         <MobileLabel>Account information</MobileLabel>
         <View style={styles.infoStack}>
-          <MobileInfoRow label="Full Name" value={getFullName(profile.first_name, profile.last_name)} />
-          <MobileInfoRow label="Username" value={profile.username} />
-          <MobileInfoRow label="Email" value={profile.email} valueStyle={styles.longValue} />
-          <MobileInfoRow label="Role" value="Person" />
+          <MobileInfoRow label="Name" value={getFullName(profile.firstName, profile.lastName) || "—"} />
+          <MobileInfoRow label="Organization" value={organization?.name ?? "—"} />
+          <MobileInfoRow label="Organization Code" value={organization?.code ?? "—"} />
+          <MobileInfoRow label="Username" value={membership.username} />
+          <MobileInfoRow label="Email" value={profile.email || "—"} valueStyle={styles.longValue} />
+          <MobileInfoRow label="Membership" value={membership.role.replace("_", " ")} />
         </View>
       </MobileCard>
 
       <MobileSoftCard>
         <Text style={styles.noteTitle}>Session</Text>
         <Text style={styles.noteText}>
-          You are signed in to the {ORGANIZATION_NAME} mobile attendance portal. Use the scan screen to log your time in and time out whenever attendance is open.
+          You are signed in to {organization?.name ?? "your organization"} on Activity Log. Use the scan screen to log your time in
+          and time out whenever an activity is open.
         </Text>
       </MobileSoftCard>
 
@@ -75,28 +76,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 26,
     alignItems: "center",
-  },
-  portalBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginBottom: 14,
-  },
-  portalLogo: {
-    width: 20,
-    height: 20,
-  },
-  portalBadgeText: {
-    color: "rgba(255,255,255,0.88)",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.4,
   },
   identityBadge: {
     width: 68,
