@@ -145,7 +145,10 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::integer from public.activity_scans where scan_type = 'time_in'),
+  (select count(*)::integer
+   from public.activity_scans
+   where scan_type = 'time_in'
+     and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'),
   1,
   'first scan stores time_in'
 );
@@ -156,7 +159,10 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::integer from public.activity_scans where scan_type = 'time_out'),
+  (select count(*)::integer
+   from public.activity_scans
+   where scan_type = 'time_out'
+     and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'),
   1,
   'second scan stores time_out'
 );
