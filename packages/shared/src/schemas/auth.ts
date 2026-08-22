@@ -21,3 +21,16 @@ export const personLoginSchema = z.object({
 });
 
 export type PersonLoginInput = z.infer<typeof personLoginSchema>;
+
+export const organizationLoginSchema = z.object({
+  organizationCode: z
+    .string()
+    .trim()
+    .min(1, "Enter your organization code.")
+    .max(20, "Organization code is too long.")
+    .transform((value) => value.toUpperCase()),
+  username: z.string().trim().min(1, "Enter your username.").max(32, "Username is too long."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+});
+
+export type OrganizationLoginInput = z.infer<typeof organizationLoginSchema>;

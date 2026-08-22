@@ -1,4 +1,5 @@
 import type {
+  ACTIVITY_STATUSES,
   ATTENDANCE_SCAN_TYPES,
   ORGANIZATION_APPLICATION_STATUSES,
   ORGANIZATION_MEMBERSHIP_ROLES,
@@ -13,6 +14,7 @@ export type ProfileRole = (typeof PROFILE_ROLES)[number];
 export type ProfileStatus = (typeof PROFILE_STATUSES)[number];
 export type AttendanceScanType = (typeof ATTENDANCE_SCAN_TYPES)[number];
 export type QrSessionStatus = (typeof QR_SESSION_STATUSES)[number];
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 export type PlatformRole = (typeof PLATFORM_ROLES)[number];
 export type OrganizationMembershipRole = (typeof ORGANIZATION_MEMBERSHIP_ROLES)[number];
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
@@ -95,6 +97,40 @@ export interface AppSettings {
 export interface AttendanceMutationResult {
   attendanceRecordId: string;
   attendanceDate: string;
+  scanType: AttendanceScanType;
+  scannedAt: string;
+  timeIn: string | null;
+  timeOut: string | null;
+  message: string;
+}
+
+export interface Activity {
+  id: string;
+  organizationId: string;
+  name: string;
+  status: ActivityStatus;
+  startedAt: string;
+  endedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  organizationId: string;
+  activityId: string;
+  membershipId: string;
+  timeIn: string;
+  timeOut: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityScanMutationResult {
+  activityLogId: string;
+  activityId: string;
+  activityName: string;
   scanType: AttendanceScanType;
   scannedAt: string;
   timeIn: string | null;

@@ -12,6 +12,7 @@ export const PROFILE_ROLES = ["person", "admin"] as const;
 export const PROFILE_STATUSES = ["active", "inactive"] as const;
 export const QR_SESSION_STATUSES = ["active", "expired", "revoked"] as const;
 export const ATTENDANCE_SCAN_TYPES = ["time_in", "time_out"] as const;
+export const ACTIVITY_STATUSES = ["active", "ended"] as const;
 export const PLATFORM_ROLES = ["user", "platform_admin"] as const;
 export const ORGANIZATION_MEMBERSHIP_ROLES = ["organization_admin", "member"] as const;
 export const ORGANIZATION_STATUSES = ["active", "suspended", "archived"] as const;

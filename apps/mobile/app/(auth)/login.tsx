@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,24 +11,44 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { ORGANIZATION_NAME, ORGANIZATION_SHORT_NAME, personLoginSchema } from "@attendance/shared";
+import { organizationLoginSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
+import { getAdminAppUrl } from "../../lib/config";
+import type { LoginContextPayload } from "../../providers/auth-provider";
+import { useAuth } from "../../providers/auth-provider";
 
-const scppaLogo = require("../../assets/images/scppa-logo.png");
+const CONNECTION_ERROR = "Unable to connect to Activity Log. Check your internet connection and try again.";
+const GENERIC_ERROR = "Invalid organization code, username, or password.";
 
-function getAdminAppUrl() {
-  const url = process.env.EXPO_PUBLIC_ADMIN_APP_URL?.trim();
+interface LoginResponse {
+  error?: string;
+  access_token?: string;
+  refresh_token?: string;
+  organization?: LoginContextPayload["organization"];
+  membership?: LoginContextPayload["membership"];
+  profile?: LoginContextPayload["profile"];
+}
 
-  if (!url) {
-    throw new Error("Missing EXPO_PUBLIC_ADMIN_APP_URL.");
+function getFriendlyError(reason: unknown, serverError?: string) {
+  if (serverError) {
+    return serverError;
   }
 
-  return url.endsWith("/") ? url.slice(0, -1) : url;
+  if (reason instanceof Error) {
+    const message = reason.message.toLowerCase();
+    if (message.includes("fetch") || message.includes("network") || message.includes("timeout") || message.includes("econnrefused")) {
+      return CONNECTION_ERROR;
+    }
+  }
+
+  return GENERIC_ERROR;
 }
 
 export default function LoginScreen() {
+  const { applyLoginContext } = useAuth();
+  const [organizationCode, setOrganizationCode] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,31 +56,41 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
-    const parsed = personLoginSchema.safeParse({ username, password });
+    const parsed = organizationLoginSchema.safeParse({ organizationCode, username, password });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Invalid login details.");
+      setError(parsed.error.issues[0]?.message ?? GENERIC_ERROR);
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    const response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(parsed.data),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(parsed.data),
+      });
+    } catch (reason) {
+      setError(getFriendlyError(reason));
+      setLoading(false);
+      return;
+    }
 
-    const result = (await response.json()) as {
-      error?: string;
-      access_token?: string;
-      refresh_token?: string;
-    };
+    let result: LoginResponse;
+    try {
+      result = (await response.json()) as LoginResponse;
+    } catch {
+      setError(CONNECTION_ERROR);
+      setLoading(false);
+      return;
+    }
 
-    if (!response.ok || !result.access_token || !result.refresh_token) {
-      setError(result.error ?? "Unable to sign in.");
+    if (!response.ok || !result.access_token || !result.refresh_token || !result.organization || !result.membership) {
+      setError(result.error ?? GENERIC_ERROR);
       setLoading(false);
       return;
     }
@@ -72,30 +101,22 @@ export default function LoginScreen() {
     });
 
     if (sessionError || !data.session?.user) {
-      setError(sessionError?.message ?? "Unable to start your session.");
+      setError(getFriendlyError(sessionError ?? new Error(GENERIC_ERROR)));
       setLoading(false);
       return;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", data.session.user.id)
-      .maybeSingle();
-
-    if (!profile || profile.role !== "person") {
-      await supabase.auth.signOut();
-      setError("This mobile app is for people accounts only.");
-      setLoading(false);
-      return;
-    }
-
-    if (profile.status !== "active") {
-      await supabase.auth.signOut();
-      setError("Your account is inactive.");
-      setLoading(false);
-      return;
-    }
+    await applyLoginContext({
+      organization: result.organization,
+      membership: result.membership,
+      profile: result.profile ?? {
+        id: data.session.user.id,
+        firstName: "",
+        lastName: "",
+        email: data.session.user.email ?? "",
+        status: "active",
+      },
+    });
 
     setLoading(false);
   }
@@ -117,11 +138,10 @@ export default function LoginScreen() {
         >
           <View style={styles.brandBlock}>
             <View style={styles.brandMark}>
-              <Image source={scppaLogo} style={styles.brandImage} resizeMode="contain" />
+              <Text style={styles.brandMarkText}>AL</Text>
             </View>
-            <Text style={styles.brandTitle}>{ORGANIZATION_SHORT_NAME} Portal</Text>
-            <Text style={styles.brandOrg}>{ORGANIZATION_NAME}</Text>
-            <Text style={styles.brandSubtitle}>Sign in to your account</Text>
+            <Text style={styles.brandTitle}>Activity Log</Text>
+            <Text style={styles.brandSubtitle}>Sign in with your organization to record activities.</Text>
           </View>
 
           <View style={styles.form}>
@@ -133,6 +153,20 @@ export default function LoginScreen() {
             ) : null}
 
             <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Organization Code</Text>
+              <TextInput
+                value={organizationCode}
+                onChangeText={setOrganizationCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoComplete="organization"
+                placeholder="e.g. SCPPA"
+                placeholderTextColor={mobileTheme.mutedSoft}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.field}>
               <Text style={styles.fieldLabel}>Username</Text>
               <TextInput
                 value={username}
@@ -140,7 +174,6 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="username"
-                keyboardType="number-pad"
                 placeholder="Enter your username"
                 placeholderTextColor={mobileTheme.mutedSoft}
                 style={styles.input}
@@ -218,10 +251,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
+    borderRadius: 24,
+    backgroundColor: mobileTheme.accent,
   },
-  brandImage: {
-    width: 84,
-    height: 84,
+  brandMarkText: {
+    color: mobileTheme.white,
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: 2,
   },
   brandTitle: {
     fontSize: 30,
@@ -229,13 +266,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.8,
-  },
-  brandOrg: {
-    marginTop: 8,
-    fontSize: 13,
-    lineHeight: 19,
-    color: mobileTheme.muted,
-    fontWeight: "600",
   },
   brandSubtitle: {
     marginTop: 10,
