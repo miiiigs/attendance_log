@@ -69,6 +69,58 @@ export async function requireAdmin() {
   return { supabase, session, profile: profile! };
 }
 
+/**
+ * Allows platform admins and any active organization admin. Used by the
+ * legacy `(protected)` area whose dashboard now redirects org admins to
+ * their organization console.
+ */
+export async function requireAdminOrOrgAdmin() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const profile = await getProfile(supabase, session.user.id);
+
+  if (!isActiveAdmin(profile)) {
+    const { data: membership } = await supabase
+      .from("organization_memberships")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .eq("role", "organization_admin")
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (!membership) {
+      await supabase.auth.signOut();
+      redirect("/login");
+    }
+  }
+
+  return { supabase, session, profile: profile! };
+}
+
+export async function resolveDefaultOrgSlug(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+  const { data: organizationId } = await supabase.rpc("get_default_organization_id");
+
+  if (typeof organizationId !== "string") {
+    return null;
+  }
+
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("slug")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  return organization?.slug ?? null;
+}
+
 export async function requireAdminApiContext() {
   const supabase = await createSupabaseServerClient();
   const {
