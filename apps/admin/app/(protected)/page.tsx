@@ -5,8 +5,8 @@ import { resolveLegacyOrg } from "../../lib/legacy-redirect";
 export const dynamic = "force-dynamic";
 
 export default async function HomeRedirectPage() {
-  await requireAdminOrOrgAdmin();
-  const resolution = await resolveLegacyOrg();
+  const { user } = await requireAdminOrOrgAdmin();
+  const resolution = await resolveLegacyOrg(user.id);
 
   if (resolution.kind === "single") {
     redirect(`/org/${resolution.slug}/dashboard`);

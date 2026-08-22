@@ -6,20 +6,13 @@ import { createSupabaseServerClient } from "../../lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export default async function ChooseOrgPage() {
-  await requireAdminOrOrgAdmin();
+  const { user } = await requireAdminOrOrgAdmin();
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return null;
-  }
 
   const { data: memberships } = await supabase
     .from("organization_memberships")
     .select("organization_id, organizations!organization_memberships_organization_id_fkey(name, code, slug, status)")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("role", "organization_admin")
     .eq("status", "active");
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "./supabase/server";
+import { getValidatedUser } from "./validated-user";
 
 export type LegacyOrgResolution =
   | { kind: "single"; slug: string }
@@ -17,20 +18,18 @@ export type LegacyOrgResolution =
  * membership produces a deterministic redirect; ambiguous cases route to a
  * neutral selection page.
  */
-export async function resolveLegacyOrg(): Promise<LegacyOrgResolution> {
+export async function resolveLegacyOrg(userId?: string): Promise<LegacyOrgResolution> {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const resolvedUserId = userId ?? (await getValidatedUser(supabase))?.id;
 
-  if (!session) {
+  if (!resolvedUserId) {
     redirect("/login");
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("platform_role, role")
-    .eq("id", session.user.id)
+    .eq("id", resolvedUserId)
     .maybeSingle();
 
   if (profile?.platform_role === "platform_admin") {
@@ -40,7 +39,7 @@ export async function resolveLegacyOrg(): Promise<LegacyOrgResolution> {
   const { data: memberships } = await supabase
     .from("organization_memberships")
     .select("organization_id, organizations!organization_memberships_organization_id_fkey(slug)")
-    .eq("user_id", session.user.id)
+    .eq("user_id", resolvedUserId)
     .eq("role", "organization_admin")
     .eq("status", "active");
 

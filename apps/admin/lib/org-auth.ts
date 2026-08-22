@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "./supabase/server";
+import { getValidatedUser } from "./validated-user";
 
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -73,23 +74,21 @@ function isAuthorized(profile: { status: string; platform_role: string | null } 
  */
 export async function requireOrgAdmin(slug: string) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  const profile = await getProfile(supabase, session.user.id);
-  const context = await resolveOrgContext(supabase, slug, session.user.id);
+  const profile = await getProfile(supabase, user.id);
+  const context = await resolveOrgContext(supabase, slug, user.id);
 
   if (!context || !isAuthorized(profile, context.membership)) {
     await supabase.auth.signOut();
     redirect("/");
   }
 
-  return { supabase, session, profile: profile!, ...context };
+  return { supabase, user, profile: profile!, ...context };
 }
 
 /**
@@ -97,20 +96,18 @@ export async function requireOrgAdmin(slug: string) {
  */
 export async function requireOrgAdminApiContext(slug: string) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  const profile = await getProfile(supabase, session.user.id);
-  const context = await resolveOrgContext(supabase, slug, session.user.id);
+  const profile = await getProfile(supabase, user.id);
+  const context = await resolveOrgContext(supabase, slug, user.id);
 
   if (!context || !isAuthorized(profile, context.membership)) {
     return null;
   }
 
-  return { supabase, session, profile: profile!, ...context };
+  return { supabase, user, profile: profile!, ...context };
 }

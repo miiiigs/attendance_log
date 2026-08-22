@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "./supabase/server";
+import { getValidatedUser } from "./validated-user";
 
 type AdminProfile = {
   id: string;
@@ -51,22 +52,20 @@ function isActiveAdmin(profile: AdminProfile | null) {
 
 export async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  const profile = await getProfile(supabase, session.user.id);
+  const profile = await getProfile(supabase, user.id);
 
   if (!isActiveAdmin(profile)) {
     await supabase.auth.signOut();
     redirect("/login");
   }
 
-  return { supabase, session, profile: profile! };
+  return { supabase, user, profile: profile! };
 }
 
 /**
@@ -76,21 +75,19 @@ export async function requireAdmin() {
  */
 export async function requireAdminOrOrgAdmin() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  const profile = await getProfile(supabase, session.user.id);
+  const profile = await getProfile(supabase, user.id);
 
   if (!isActiveAdmin(profile)) {
     const { data: membership } = await supabase
       .from("organization_memberships")
       .select("id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", user.id)
       .eq("role", "organization_admin")
       .eq("status", "active")
       .limit(1)
@@ -102,62 +99,56 @@ export async function requireAdminOrOrgAdmin() {
     }
   }
 
-  return { supabase, session, profile: profile! };
+  return { supabase, user, profile: profile! };
 }
 
 export async function requireAdminApiContext() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  const profile = await getProfile(supabase, session.user.id);
+  const profile = await getProfile(supabase, user.id);
 
   if (!isActiveAdmin(profile)) {
     return null;
   }
 
-  return { session, profile: profile! };
+  return { user, profile: profile! };
 }
 
 export async function requirePlatformAdmin() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  const profile = await getProfile(supabase, session.user.id);
+  const profile = await getProfile(supabase, user.id);
 
   if (!profile || profile.status !== "active" || profile.platform_role !== "platform_admin") {
     redirect("/");
   }
 
-  return { supabase, session, profile: profile! };
+  return { supabase, user, profile: profile! };
 }
 
 export async function requirePlatformAdminApiContext() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const user = await getValidatedUser(supabase);
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  const profile = await getProfile(supabase, session.user.id);
+  const profile = await getProfile(supabase, user.id);
 
   if (!profile || profile.status !== "active" || profile.platform_role !== "platform_admin") {
     return null;
   }
 
-  return { session, profile: profile! };
+  return { user, profile: profile! };
 }
