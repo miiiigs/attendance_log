@@ -2,10 +2,19 @@ import { DEFAULT_TIMEZONE, getFullName } from "@attendance/shared";
 import { suggestOrganizationCode } from "../organizations";
 import { createSupabaseServerClient } from "../supabase/server";
 
+const PLATFORM_PAGE_SIZE = 10;
+
 export interface PlatformMetric {
   label: string;
   value: number;
   hint: string;
+}
+
+export interface PlatformPagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 }
 
 export interface PlatformApplicationListItem {
@@ -24,6 +33,21 @@ export interface PlatformApplicationListItem {
   suggestedTimezone: string;
 }
 
+export interface PlatformApplicationsResult extends PlatformPagination {
+  items: PlatformApplicationListItem[];
+}
+
+export interface PlatformRecentOrganization {
+  id: string;
+  name: string;
+  code: string;
+  slug: string;
+  status: "active" | "suspended" | "archived";
+  timezone: string;
+  createdAt: string;
+  approvedAt: string | null;
+}
+
 export interface PlatformOrganizationListItem {
   id: string;
   name: string;
@@ -37,7 +61,11 @@ export interface PlatformOrganizationListItem {
   adminCount: number;
   primaryAdminName: string;
   primaryAdminEmail: string;
-  attendanceRecordCount: number;
+  activityCount: number;
+}
+
+export interface PlatformOrganizationsResult extends PlatformPagination {
+  items: PlatformOrganizationListItem[];
 }
 
 export interface PlatformOrganizationDetail {
@@ -53,7 +81,7 @@ export interface PlatformOrganizationDetail {
   };
   memberCount: number;
   adminCount: number;
-  attendanceRecordCount: number;
+  activityCount: number;
   administrators: Array<{
     id: string;
     username: string;
@@ -71,14 +99,40 @@ export interface PlatformOrganizationDetail {
     status: string;
     joinedAt: string;
   }>;
-  recentAttendance: Array<{
+  recentActivities: Array<{
     id: string;
-    attendanceDate: string;
-    timeIn: string | null;
-    timeOut: string | null;
     name: string;
-    email: string;
+    status: string;
+    startedAt: string;
+    endedAt: string | null;
   }>;
+}
+
+function normalizePage(page?: number) {
+  if (!Number.isFinite(page) || !page || page < 1) {
+    return 1;
+  }
+
+  return Math.floor(page);
+}
+
+function sanitizeSearchTerm(search?: string | null) {
+  return (search ?? "").trim().replace(/[,%()]/g, " ").replace(/\s+/g, " ");
+}
+
+function buildIlikePattern(search: string) {
+  return `%${search}%`;
+}
+
+function buildPagination(page: number, totalCount: number): PlatformPagination {
+  const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PAGE_SIZE));
+
+  return {
+    page,
+    pageSize: PLATFORM_PAGE_SIZE,
+    totalCount,
+    totalPages,
+  };
 }
 
 function mapApplication(
@@ -113,18 +167,40 @@ function mapApplication(
   };
 }
 
+function mapRecentOrganization(organization: {
+  id: string;
+  name: string;
+  code: string;
+  slug: string;
+  status: "active" | "suspended" | "archived";
+  timezone: string;
+  created_at: string;
+  approved_at: string | null;
+}): PlatformRecentOrganization {
+  return {
+    id: organization.id,
+    name: organization.name,
+    code: organization.code,
+    slug: organization.slug,
+    status: organization.status,
+    timezone: organization.timezone,
+    createdAt: organization.created_at,
+    approvedAt: organization.approved_at,
+  };
+}
+
 export async function getPlatformDashboardData() {
   const supabase = await createSupabaseServerClient();
   const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-  const nextMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const nextMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
 
   const [
     organizationsCountResult,
     activeOrganizationsCountResult,
     pendingApplicationsCountResult,
     activeMembershipsCountResult,
-    attendanceRecordsCountResult,
+    activitiesCountResult,
     recentApplicationsResult,
     recentOrganizationsResult,
   ] = await Promise.all([
@@ -133,10 +209,10 @@ export async function getPlatformDashboardData() {
     supabase.from("organization_applications").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("organization_memberships").select("id", { count: "exact", head: true }).eq("status", "active"),
     supabase
-      .from("attendance_records")
+      .from("activities")
       .select("id", { count: "exact", head: true })
-      .gte("attendance_date", monthStart)
-      .lt("attendance_date", nextMonthStart),
+      .gte("started_at", monthStart)
+      .lt("started_at", nextMonthStart),
     supabase
       .from("organization_applications")
       .select(
@@ -173,54 +249,155 @@ export async function getPlatformDashboardData() {
       hint: "Active organization memberships across the platform",
     },
     {
-      label: "Attendance Logs This Month",
-      value: attendanceRecordsCountResult.count ?? 0,
-      hint: "Current operational metric until activity history replaces attendance-only reporting",
+      label: "Activities This Month",
+      value: activitiesCountResult.count ?? 0,
+      hint: "Activities started across all active organizations this month",
     },
   ];
 
   return {
     metrics,
     recentApplications: (recentApplicationsResult.data ?? []).map(mapApplication),
-    recentOrganizations: (recentOrganizationsResult.data ?? []),
+    recentOrganizations: (recentOrganizationsResult.data ?? []).map(mapRecentOrganization),
   };
 }
 
-export async function getPlatformApplications(status: "all" | "pending" | "approved" | "rejected" = "all") {
+export async function getPlatformApplications(input?: {
+  status?: "all" | "pending" | "approved" | "rejected";
+  search?: string;
+  page?: number;
+}): Promise<PlatformApplicationsResult> {
   const supabase = await createSupabaseServerClient();
+  const status = input?.status ?? "pending";
+  const search = sanitizeSearchTerm(input?.search);
+  const page = normalizePage(input?.page);
+  const from = (page - 1) * PLATFORM_PAGE_SIZE;
+  const to = from + PLATFORM_PAGE_SIZE - 1;
+  const searchPattern = buildIlikePattern(search);
+
   let query = supabase
     .from("organization_applications")
     .select(
       "id, organization_name, contact_first_name, contact_last_name, contact_email, organization_type, estimated_member_count, message, status, reviewed_at, created_at",
+      { count: "exact" },
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   if (status !== "all") {
     query = query.eq("status", status);
   }
 
-  const { data } = await query;
-  return (data ?? []).map(mapApplication);
+  if (search) {
+    query = query.or(
+      [
+        `organization_name.ilike.${searchPattern}`,
+        `contact_first_name.ilike.${searchPattern}`,
+        `contact_last_name.ilike.${searchPattern}`,
+        `contact_email.ilike.${searchPattern}`,
+      ].join(","),
+    );
+  }
+
+  const { data, count } = await query;
+  const totalCount = count ?? 0;
+
+  return {
+    items: (data ?? []).map(mapApplication),
+    ...buildPagination(page, totalCount),
+  };
 }
 
-export async function getPlatformOrganizations() {
+async function findMatchingOrganizationAdminIds(search: string) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: organizations }, { data: memberships }, { data: records }] = await Promise.all([
-    supabase
-      .from("organizations")
-      .select("id, name, code, slug, status, timezone, created_at, approved_at")
-      .order("created_at", { ascending: false }),
+  const searchPattern = buildIlikePattern(search);
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .or(
+      [
+        `first_name.ilike.${searchPattern}`,
+        `last_name.ilike.${searchPattern}`,
+        `email.ilike.${searchPattern}`,
+      ].join(","),
+    )
+    .limit(100);
+
+  const userIds = (profiles ?? []).map((profile) => profile.id);
+  if (!userIds.length) {
+    return [];
+  }
+
+  const { data: memberships } = await supabase
+    .from("organization_memberships")
+    .select("organization_id")
+    .eq("role", "organization_admin")
+    .eq("status", "active")
+    .in("user_id", userIds);
+
+  return [...new Set((memberships ?? []).map((membership) => membership.organization_id))];
+}
+
+export async function getPlatformOrganizations(input?: {
+  status?: "all" | "active" | "suspended" | "archived";
+  search?: string;
+  page?: number;
+}): Promise<PlatformOrganizationsResult> {
+  const supabase = await createSupabaseServerClient();
+  const status = input?.status ?? "active";
+  const search = sanitizeSearchTerm(input?.search);
+  const page = normalizePage(input?.page);
+  const from = (page - 1) * PLATFORM_PAGE_SIZE;
+  const to = from + PLATFORM_PAGE_SIZE - 1;
+  const searchPattern = buildIlikePattern(search);
+  const matchingAdminOrgIds = search ? await findMatchingOrganizationAdminIds(search) : [];
+
+  let query = supabase
+    .from("organizations")
+    .select("id, name, code, slug, status, timezone, created_at, approved_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (status !== "all") {
+    query = query.eq("status", status);
+  }
+
+  if (search) {
+    const searchClauses = [`name.ilike.${searchPattern}`, `code.ilike.${searchPattern}`];
+
+    if (matchingAdminOrgIds.length) {
+      searchClauses.push(`id.in.(${matchingAdminOrgIds.join(",")})`);
+    }
+
+    query = query.or(searchClauses.join(","));
+  }
+
+  const { data: organizations, count } = await query;
+  const organizationIds = (organizations ?? []).map((organization) => organization.id);
+  const totalCount = count ?? 0;
+
+  if (!organizationIds.length) {
+    return {
+      items: [],
+      ...buildPagination(page, totalCount),
+    };
+  }
+
+  const [{ data: memberships }, { data: activities }] = await Promise.all([
     supabase
       .from("organization_memberships")
       .select(
         "id, organization_id, username, role, status, created_at, profiles!organization_memberships_user_id_fkey(first_name, last_name, email)",
       )
-      .eq("status", "active"),
-    supabase.from("attendance_records").select("id, organization_id"),
+      .in("organization_id", organizationIds)
+      .eq("status", "active")
+      .order("created_at", { ascending: true }),
+    supabase.from("activities").select("id, organization_id").in("organization_id", organizationIds),
   ]);
 
   const membershipMap = new Map<string, typeof memberships>();
-  const recordCounts = new Map<string, number>();
+  const activityCounts = new Map<string, number>();
 
   for (const membership of memberships ?? []) {
     const current = membershipMap.get(membership.organization_id) ?? [];
@@ -228,34 +405,37 @@ export async function getPlatformOrganizations() {
     membershipMap.set(membership.organization_id, current);
   }
 
-  for (const record of records ?? []) {
-    recordCounts.set(record.organization_id, (recordCounts.get(record.organization_id) ?? 0) + 1);
+  for (const activity of activities ?? []) {
+    activityCounts.set(activity.organization_id, (activityCounts.get(activity.organization_id) ?? 0) + 1);
   }
 
-  return (organizations ?? []).map((organization) => {
-    const organizationMemberships = membershipMap.get(organization.id) ?? [];
-    const administrators = organizationMemberships.filter((membership) => membership.role === "organization_admin");
-    const primaryAdmin = administrators[0];
-    const primaryAdminProfile = Array.isArray(primaryAdmin?.profiles) ? primaryAdmin?.profiles[0] : primaryAdmin?.profiles;
+  return {
+    items: (organizations ?? []).map((organization) => {
+      const organizationMemberships = membershipMap.get(organization.id) ?? [];
+      const administrators = organizationMemberships.filter((membership) => membership.role === "organization_admin");
+      const primaryAdmin = administrators[0];
+      const primaryAdminProfile = Array.isArray(primaryAdmin?.profiles) ? primaryAdmin.profiles[0] : primaryAdmin?.profiles;
 
-    return {
-      id: organization.id,
-      name: organization.name,
-      code: organization.code,
-      slug: organization.slug,
-      status: organization.status,
-      timezone: organization.timezone,
-      createdAt: organization.created_at,
-      approvedAt: organization.approved_at,
-      memberCount: organizationMemberships.length,
-      adminCount: administrators.length,
-      primaryAdminName: primaryAdminProfile
-        ? getFullName(primaryAdminProfile.first_name, primaryAdminProfile.last_name)
-        : "Unassigned",
-      primaryAdminEmail: primaryAdminProfile?.email ?? "N/A",
-      attendanceRecordCount: recordCounts.get(organization.id) ?? 0,
-    } satisfies PlatformOrganizationListItem;
-  });
+      return {
+        id: organization.id,
+        name: organization.name,
+        code: organization.code,
+        slug: organization.slug,
+        status: organization.status,
+        timezone: organization.timezone,
+        createdAt: organization.created_at,
+        approvedAt: organization.approved_at,
+        memberCount: organizationMemberships.length,
+        adminCount: administrators.length,
+        primaryAdminName: primaryAdminProfile
+          ? getFullName(primaryAdminProfile.first_name, primaryAdminProfile.last_name)
+          : "Unassigned",
+        primaryAdminEmail: primaryAdminProfile?.email ?? "N/A",
+        activityCount: activityCounts.get(organization.id) ?? 0,
+      } satisfies PlatformOrganizationListItem;
+    }),
+    ...buildPagination(page, totalCount),
+  };
 }
 
 export async function getPlatformOrganizationById(id: string): Promise<PlatformOrganizationDetail | null> {
@@ -270,7 +450,7 @@ export async function getPlatformOrganizationById(id: string): Promise<PlatformO
     return null;
   }
 
-  const [{ data: memberships }, { data: recentAttendance }, { count: attendanceRecordCount }] = await Promise.all([
+  const [{ data: memberships }, { data: recentActivities }, { count: activityCount }] = await Promise.all([
     supabase
       .from("organization_memberships")
       .select(
@@ -279,14 +459,12 @@ export async function getPlatformOrganizationById(id: string): Promise<PlatformO
       .eq("organization_id", id)
       .order("created_at", { ascending: true }),
     supabase
-      .from("attendance_records")
-      .select(
-        "id, attendance_date, time_in, time_out, profiles!attendance_records_user_id_fkey(first_name, last_name, email)",
-      )
+      .from("activities")
+      .select("id, name, status, started_at, ended_at")
       .eq("organization_id", id)
-      .order("attendance_date", { ascending: false })
+      .order("started_at", { ascending: false })
       .limit(10),
-    supabase.from("attendance_records").select("id", { count: "exact", head: true }).eq("organization_id", id),
+    supabase.from("activities").select("id", { count: "exact", head: true }).eq("organization_id", id),
   ]);
 
   const mappedMembers = (memberships ?? []).map((membership) => {
@@ -316,20 +494,15 @@ export async function getPlatformOrganizationById(id: string): Promise<PlatformO
     },
     memberCount: mappedMembers.filter((member) => member.status === "active").length,
     adminCount: mappedMembers.filter((member) => member.role === "organization_admin" && member.status === "active").length,
-    attendanceRecordCount: attendanceRecordCount ?? 0,
+    activityCount: activityCount ?? 0,
     administrators: mappedMembers.filter((member) => member.role === "organization_admin"),
     members: mappedMembers,
-    recentAttendance: (recentAttendance ?? []).map((record) => {
-      const profile = Array.isArray(record.profiles) ? record.profiles[0] : record.profiles;
-
-      return {
-        id: record.id,
-        attendanceDate: record.attendance_date,
-        timeIn: record.time_in,
-        timeOut: record.time_out,
-        name: profile ? getFullName(profile.first_name, profile.last_name) : "Unknown",
-        email: profile?.email ?? "N/A",
-      };
-    }),
+    recentActivities: (recentActivities ?? []).map((activity) => ({
+      id: activity.id,
+      name: activity.name,
+      status: activity.status,
+      startedAt: activity.started_at,
+      endedAt: activity.ended_at,
+    })),
   };
 }

@@ -15,6 +15,16 @@ export function OrganizationStatusManager({
   const [error, setError] = useState<string | null>(null);
 
   async function updateStatus(nextStatus: "active" | "suspended") {
+    const confirmed = window.confirm(
+      nextStatus === "suspended"
+        ? "Suspend this organization? Administrators and members will lose operational access until reactivated."
+        : "Reactivate this organization?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setPending(nextStatus);
     setError(null);
 

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { Client as PgClient } from "pg";
-import { e2eEnv, e2eIdentities } from "./env";
+import { e2eEnv, e2eIdentities, e2ePlatformApplication } from "./env";
 
 /**
  * Seeds deterministic local-only E2E identities and resets prior E2E state.
@@ -47,6 +47,29 @@ export async function seedE2e() {
       throw new Error("E2E seed: unable to resolve Org B.");
     }
 
+    const platformOrgResult = await pg.query("select id from public.organizations where lower(code) = lower($1) limit 1", [
+      e2ePlatformApplication.organizationCode,
+    ]);
+    const platformOrgId: string | undefined = platformOrgResult.rows[0]?.id;
+    if (platformOrgId) {
+      await pg.query(`delete from public.qr_sessions where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.activity_scans where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.activity_logs where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.activities where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.attendance_scans where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.attendance_records where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.organization_memberships where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.organization_username_counters where organization_id = $1`, [platformOrgId]);
+      await pg.query(`delete from public.organizations where id = $1`, [platformOrgId]);
+    }
+
+    await pg.query(
+      `delete from public.organization_applications
+       where lower(contact_email) = lower($1)
+          or lower(organization_name) = lower($2)`,
+      [e2ePlatformApplication.contactEmail, e2ePlatformApplication.organizationName],
+    );
+
     // Clear previous E2E activity state in the two E2E organizations only.
     await pg.query(`delete from public.qr_sessions where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
     await pg.query(`delete from public.activity_scans where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
@@ -58,6 +81,7 @@ export async function seedE2e() {
     const emails = Object.values(e2eIdentities)
       .filter((identity): identity is (typeof e2eIdentities)["admin"] => typeof identity === "object" && "email" in identity)
       .map((identity) => identity.email);
+    emails.push(e2ePlatformApplication.contactEmail);
 
     const { data: existingUsers, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listError) {
@@ -97,15 +121,16 @@ export async function seedE2e() {
 
     // Insert profiles.
     const profiles = [
+      { id: created.get("platformAdmin")!.id, ...e2eIdentities.platformAdmin, role: "person", platformRole: "platform_admin" },
       { id: created.get("admin")!.id, ...e2eIdentities.admin, role: "admin" },
       { id: created.get("member")!.id, ...e2eIdentities.member, role: "person" },
       { id: created.get("memberB")!.id, ...e2eIdentities.memberB, role: "person" },
     ];
     for (const profile of profiles) {
       await pg.query(
-        `insert into public.profiles (id, username, first_name, last_name, email, role, status)
-         values ($1, $2, $3, $4, $5, $6, 'active')`,
-        [profile.id, profile.username, profile.firstName, profile.lastName, profile.email, profile.role],
+        `insert into public.profiles (id, username, first_name, last_name, email, role, status, platform_role)
+         values ($1, $2, $3, $4, $5, $6, 'active', $7)`,
+        [profile.id, profile.username, profile.firstName, profile.lastName, profile.email, profile.role, profile.platformRole ?? "user"],
       );
     }
 

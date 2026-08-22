@@ -22,6 +22,12 @@ export const e2eEnv = {
 
 export const e2eIdentities = {
   password: "E2ePassword123",
+  platformAdmin: {
+    username: "e2e.platform",
+    email: "e2e.platform@attendance.local",
+    firstName: "E2E",
+    lastName: "Platform",
+  },
   admin: {
     username: "e2e.admin",
     email: "e2e.admin@attendance.local",
@@ -45,4 +51,15 @@ export const e2eIdentities = {
 export const e2eOrgCodes = {
   scppa: "SCPPA",
   orgB: "E2EB",
+};
+
+export const e2ePlatformApplication = {
+  organizationName: "E2E Community Council",
+  organizationCode: "E2EC",
+  contactFirstName: "Casey",
+  contactLastName: "Owner",
+  contactEmail: "e2e.org-admin@example.org",
+  organizationType: "Community association",
+  estimatedMemberCount: "25",
+  message: "Need local activity tracking for recurring events.",
 };

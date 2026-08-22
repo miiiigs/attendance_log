@@ -2,7 +2,7 @@
 
 Activity Log is a multi-tenant activity-tracking platform: a Next.js admin dashboard, an Expo mobile app, and a Supabase backend with RLS and QR-backed activity scanning.
 
-- **Platform Admin** manages organizations and applications (`/admin`).
+- **Platform Admin** manages organizations and applications (`/admin`): review, approve, reject, suspend, reactivate.
 - **Organization Admin** runs each tenant's console (`/org/[slug]/*`): Activities, Current Activity, People, Settings.
 - **People** scan Activity QR codes from the mobile app (first scan = Time In, second = Time Out).
 
@@ -82,6 +82,7 @@ pnpm e2e:install             # download the Playwright chromium browser once
 ## Notes
 
 - Login identity is an organization code + username (membership-scoped), not an email.
+- Platform approval creates organizations server-side, reuses existing global users when possible, and falls back to copyable onboarding email content when automation is unavailable.
 - Attendance/activity writes always go through `scan_activity`/`scan_attendance` database functions.
 - QR tokens are stored hashed; raw display tokens are retained in an httpOnly admin cookie.
 - Activity timestamps use each organization's configured timezone.

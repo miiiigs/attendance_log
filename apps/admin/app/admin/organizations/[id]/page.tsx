@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDateTimeInTimeZone } from "@attendance/shared";
 import { notFound } from "next/navigation";
 import { OrganizationStatusManager } from "../../../../components/organization-status-manager";
 import { getPlatformOrganizationById } from "../../../../lib/data/platform";
@@ -28,9 +29,23 @@ export default async function PlatformOrganizationDetailPage({
               Code: <span className="font-mono text-[var(--foreground)]">{detail.organization.code}</span> · Timezone:{" "}
               <span className="text-[var(--foreground)]">{detail.organization.timezone}</span>
             </p>
-            <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-              Slug: <span className="font-mono text-[var(--foreground)]">/org/{detail.organization.slug}</span>
-            </p>
+            <div className="mt-4 grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-2">
+              <p>
+                Slug: <span className="font-mono text-[var(--foreground)]">/org/{detail.organization.slug}</span>
+              </p>
+              <p>
+                Created: <span className="text-[var(--foreground)]">{new Date(detail.organization.createdAt).toLocaleDateString("en-US")}</span>
+              </p>
+              <p>
+                Approved:{" "}
+                <span className="text-[var(--foreground)]">
+                  {detail.organization.approvedAt ? new Date(detail.organization.approvedAt).toLocaleString("en-US") : "Not recorded"}
+                </span>
+              </p>
+              <p>
+                Status: <span className="capitalize text-[var(--foreground)]">{detail.organization.status}</span>
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -60,40 +75,38 @@ export default async function PlatformOrganizationDetailPage({
           <p className="mt-4 text-4xl font-bold tracking-[-0.04em] text-[var(--foreground)]">{detail.adminCount}</p>
         </article>
         <article className="admin-kpi">
-          <span className="admin-kpi-label">Attendance Records</span>
-          <p className="mt-4 text-4xl font-bold tracking-[-0.04em] text-[var(--foreground)]">{detail.attendanceRecordCount}</p>
+          <span className="admin-kpi-label">Activities</span>
+          <p className="mt-4 text-4xl font-bold tracking-[-0.04em] text-[var(--foreground)]">{detail.activityCount}</p>
         </article>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="admin-table-shell overflow-x-auto">
           <div className="border-b border-[#f0ede5] px-5 py-4">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">Organization members</h2>
+            <h2 className="text-sm font-semibold text-[var(--foreground)]">Organization administrators</h2>
           </div>
-          <table className="admin-table min-w-[680px]">
+          <table className="admin-table min-w-[620px]">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Username</th>
-                <th>Role</th>
                 <th>Status</th>
                 <th>Joined</th>
               </tr>
             </thead>
             <tbody>
-              {detail.members.map((member) => (
-                <tr key={member.id} className="admin-table-row">
+              {detail.administrators.map((administrator) => (
+                <tr key={administrator.id} className="admin-table-row">
                   <td>
                     <div>
-                      <p className="font-medium text-[var(--foreground)]">{member.name}</p>
-                      <p className="text-xs text-[var(--muted)]">{member.email}</p>
+                      <p className="font-medium text-[var(--foreground)]">{administrator.name}</p>
+                      <p className="text-xs text-[var(--muted)]">{administrator.email}</p>
                     </div>
                   </td>
-                  <td className="font-mono text-sm text-[var(--foreground)]">{member.username}</td>
-                  <td className="text-sm capitalize text-[var(--foreground)]">{member.role.replace("_", " ")}</td>
-                  <td className="text-sm capitalize text-[var(--foreground)]">{member.status}</td>
+                  <td className="font-mono text-sm text-[var(--foreground)]">{administrator.username}</td>
+                  <td className="text-sm capitalize text-[var(--foreground)]">{administrator.status}</td>
                   <td className="text-xs text-[var(--muted)]">
-                    {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(member.joinedAt))}
+                    {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(administrator.joinedAt))}
                   </td>
                 </tr>
               ))}
@@ -101,52 +114,77 @@ export default async function PlatformOrganizationDetailPage({
           </table>
         </div>
 
-        <div className="space-y-4">
-          <div className="admin-table-shell overflow-x-auto">
-            <div className="border-b border-[#f0ede5] px-5 py-4">
-              <h2 className="text-sm font-semibold text-[var(--foreground)]">Recent attendance</h2>
-            </div>
-            <table className="admin-table min-w-[460px]">
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Date</th>
-                  <th>Time In</th>
-                  <th>Time Out</th>
+        <div className="admin-table-shell overflow-x-auto">
+          <div className="border-b border-[#f0ede5] px-5 py-4">
+            <h2 className="text-sm font-semibold text-[var(--foreground)]">Recent activities</h2>
+          </div>
+          <table className="admin-table min-w-[620px]">
+            <thead>
+              <tr>
+                <th>Activity</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Ended</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.recentActivities.map((activity) => (
+                <tr key={activity.id} className="admin-table-row">
+                  <td className="font-medium text-[var(--foreground)]">{activity.name}</td>
+                  <td className="text-sm capitalize text-[var(--foreground)]">{activity.status}</td>
+                  <td className="text-xs text-[var(--muted)]">
+                    {formatDateTimeInTimeZone(activity.startedAt, detail.organization.timezone)}
+                  </td>
+                  <td className="text-xs text-[var(--muted)]">
+                    {activity.endedAt ? formatDateTimeInTimeZone(activity.endedAt, detail.organization.timezone) : "—"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {detail.recentAttendance.map((record) => (
-                  <tr key={record.id} className="admin-table-row">
-                    <td>
-                      <div>
-                        <p className="font-medium text-[var(--foreground)]">{record.name}</p>
-                        <p className="text-xs text-[var(--muted)]">{record.email}</p>
-                      </div>
-                    </td>
-                    <td className="text-xs text-[var(--muted)]">{record.attendanceDate}</td>
-                    <td className="text-xs text-[var(--foreground)]">{record.timeIn ? new Date(record.timeIn).toLocaleString("en-US") : "—"}</td>
-                    <td className="text-xs text-[var(--foreground)]">{record.timeOut ? new Date(record.timeOut).toLocaleString("en-US") : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="admin-card p-5">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">Next layer reminder</h2>
-            <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-              This platform view already manages applications and tenant status. The next major refactor is moving the current
-              single-organization admin routes under <span className="font-mono text-[var(--foreground)]">/org/[slug]</span>.
-            </p>
-            <div className="mt-4">
-              <Link href="/admin/organizations" className="admin-button-secondary">
-                Back to organizations
-              </Link>
-            </div>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
+
+      <section className="admin-table-shell overflow-x-auto">
+        <div className="border-b border-[#f0ede5] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">Organization members</h2>
+        </div>
+        <table className="admin-table min-w-[760px]">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.members.map((member) => (
+              <tr key={member.id} className="admin-table-row">
+                <td>
+                  <div>
+                    <p className="font-medium text-[var(--foreground)]">{member.name}</p>
+                    <p className="text-xs text-[var(--muted)]">{member.email}</p>
+                  </div>
+                </td>
+                <td className="font-mono text-sm text-[var(--foreground)]">{member.username}</td>
+                <td className="text-sm capitalize text-[var(--foreground)]">{member.role.replace("_", " ")}</td>
+                <td className="text-sm capitalize text-[var(--foreground)]">{member.status}</td>
+                <td className="text-xs text-[var(--muted)]">
+                  {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(member.joinedAt))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <div>
+        <Link href="/admin/organizations" className="admin-button-secondary">
+          Back to organizations
+        </Link>
+      </div>
     </div>
   );
 }

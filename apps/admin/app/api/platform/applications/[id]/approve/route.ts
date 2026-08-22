@@ -18,6 +18,27 @@ type ExistingProfile = {
   status: string;
 };
 
+async function cleanupProvisioning(
+  serviceSupabase: ReturnType<typeof createSupabaseServiceClient>,
+  input: {
+    createdOrganizationId: string | null;
+    createdProfileId: string | null;
+    createdUserId: string | null;
+  },
+) {
+  if (input.createdOrganizationId) {
+    await serviceSupabase.from("organizations").delete().eq("id", input.createdOrganizationId);
+  }
+
+  if (input.createdProfileId) {
+    await serviceSupabase.from("profiles").delete().eq("id", input.createdProfileId);
+  }
+
+  if (input.createdUserId) {
+    await serviceSupabase.auth.admin.deleteUser(input.createdUserId);
+  }
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -36,10 +57,11 @@ export async function POST(
 
   const userScopedSupabase = await createSupabaseServerClient();
   const serviceSupabase = createSupabaseServiceClient();
+  const administratorEmail = parsed.data.administratorEmail.trim().toLowerCase();
 
   const { data: application, error: applicationError } = await userScopedSupabase
     .from("organization_applications")
-    .select("id, status, contact_first_name, contact_last_name, contact_email")
+    .select("id, status")
     .eq("id", id)
     .maybeSingle();
 
@@ -58,51 +80,30 @@ export async function POST(
   const { data: existingProfile } = await serviceSupabase
     .from("profiles")
     .select("id, first_name, last_name, email, status")
-    .eq("email", parsed.data.administratorEmail)
+    .ilike("email", administratorEmail)
     .maybeSingle<ExistingProfile>();
 
   if (existingProfile && existingProfile.status !== "active") {
-    return NextResponse.json({ error: "The existing platform user for this email is inactive." }, { status: 400 });
+    return NextResponse.json({ error: "The existing Activity Log account for this email is inactive." }, { status: 400 });
+  }
+
+  if (existingProfile) {
+    const { data: existingAuthUser, error: existingAuthUserError } = await serviceSupabase.auth.admin.getUserById(existingProfile.id);
+
+    if (existingAuthUserError || !existingAuthUser.user) {
+      return NextResponse.json(
+        { error: "The existing Activity Log account for this email could not be reused safely." },
+        { status: 409 },
+      );
+    }
   }
 
   let createdUserId: string | null = null;
+  let createdProfileId: string | null = null;
   let createdOrganizationId: string | null = null;
   let temporaryPassword: string | null = null;
 
   try {
-    let userId = existingProfile?.id ?? null;
-
-    if (!userId) {
-      temporaryPassword = generateTemporaryPassword();
-      const { data: createdAuthUser, error: createAuthUserError } = await serviceSupabase.auth.admin.createUser({
-        email: parsed.data.administratorEmail,
-        password: temporaryPassword,
-        email_confirm: true,
-      });
-
-      if (createAuthUserError || !createdAuthUser.user) {
-        return NextResponse.json({ error: createAuthUserError?.message ?? "Unable to create the administrator account." }, { status: 400 });
-      }
-
-      createdUserId = createdAuthUser.user.id;
-      userId = createdAuthUser.user.id;
-
-      const { error: profileInsertError } = await serviceSupabase.from("profiles").insert({
-        id: userId,
-        username: parsed.data.organizationCode.toLowerCase(),
-        first_name: parsed.data.administratorFirstName,
-        last_name: parsed.data.administratorLastName,
-        email: parsed.data.administratorEmail,
-        role: "person",
-        status: "active",
-      });
-
-      if (profileInsertError) {
-        await serviceSupabase.auth.admin.deleteUser(userId);
-        return NextResponse.json({ error: profileInsertError.message }, { status: 400 });
-      }
-    }
-
     const { data: organization, error: organizationError } = await userScopedSupabase
       .from("organizations")
       .insert({
@@ -118,8 +119,8 @@ export async function POST(
       .single();
 
     if (organizationError || !organization) {
-      if (createdUserId) {
-        await serviceSupabase.auth.admin.deleteUser(createdUserId);
+      if (organizationError?.code === "23505") {
+        return NextResponse.json({ error: "Organization code is already in use." }, { status: 409 });
       }
 
       return NextResponse.json({ error: organizationError?.message ?? "Unable to create the organization." }, { status: 400 });
@@ -132,12 +133,63 @@ export async function POST(
     });
 
     if (usernameError || typeof generatedUsername !== "string") {
-      await serviceSupabase.from("organizations").delete().eq("id", organization.id);
-      if (createdUserId) {
-        await serviceSupabase.auth.admin.deleteUser(createdUserId);
-      }
+      await cleanupProvisioning(serviceSupabase, {
+        createdOrganizationId,
+        createdProfileId,
+        createdUserId,
+      });
 
       return NextResponse.json({ error: usernameError?.message ?? "Unable to generate an organization username." }, { status: 400 });
+    }
+
+    let userId = existingProfile?.id ?? null;
+
+    if (!userId) {
+      temporaryPassword = generateTemporaryPassword();
+      const { data: createdAuthUser, error: createAuthUserError } = await serviceSupabase.auth.admin.createUser({
+        email: administratorEmail,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          contact_email: administratorEmail,
+          username: parsed.data.organizationCode.toLowerCase(),
+        },
+      });
+
+      if (createAuthUserError || !createdAuthUser.user) {
+        await cleanupProvisioning(serviceSupabase, {
+          createdOrganizationId,
+          createdProfileId,
+          createdUserId,
+        });
+
+        return NextResponse.json({ error: createAuthUserError?.message ?? "Unable to create the administrator account." }, { status: 400 });
+      }
+
+      createdUserId = createdAuthUser.user.id;
+      userId = createdAuthUser.user.id;
+
+      const { error: profileInsertError } = await serviceSupabase.from("profiles").insert({
+        id: userId,
+        username: parsed.data.organizationCode.toLowerCase(),
+        first_name: parsed.data.administratorFirstName,
+        last_name: parsed.data.administratorLastName,
+        email: administratorEmail,
+        role: "person",
+        status: "active",
+      });
+
+      if (profileInsertError) {
+        await cleanupProvisioning(serviceSupabase, {
+          createdOrganizationId,
+          createdProfileId,
+          createdUserId,
+        });
+
+        return NextResponse.json({ error: profileInsertError.message }, { status: 400 });
+      }
+
+      createdProfileId = userId;
     }
 
     const { error: membershipError } = await userScopedSupabase.from("organization_memberships").insert({
@@ -149,36 +201,44 @@ export async function POST(
     });
 
     if (membershipError) {
-      await serviceSupabase.from("organizations").delete().eq("id", organization.id);
-      if (createdUserId) {
-        await serviceSupabase.auth.admin.deleteUser(createdUserId);
-      }
+      await cleanupProvisioning(serviceSupabase, {
+        createdOrganizationId,
+        createdProfileId,
+        createdUserId,
+      });
 
       return NextResponse.json({ error: membershipError.message }, { status: 400 });
     }
 
-    const { error: applicationUpdateError } = await userScopedSupabase
+    const { data: approvedApplication, error: applicationUpdateError } = await userScopedSupabase
       .from("organization_applications")
       .update({
         status: "approved",
         reviewed_by: adminContext.profile.id,
         reviewed_at: new Date().toISOString(),
       })
-      .eq("id", application.id);
+      .eq("id", application.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
 
-    if (applicationUpdateError) {
-      await serviceSupabase.from("organizations").delete().eq("id", organization.id);
-      if (createdUserId) {
-        await serviceSupabase.auth.admin.deleteUser(createdUserId);
-      }
+    if (applicationUpdateError || !approvedApplication) {
+      await cleanupProvisioning(serviceSupabase, {
+        createdOrganizationId,
+        createdProfileId,
+        createdUserId,
+      });
 
-      return NextResponse.json({ error: applicationUpdateError.message }, { status: 400 });
+      return NextResponse.json(
+        { error: applicationUpdateError?.message ?? "This application was already reviewed by another administrator." },
+        { status: 409 },
+      );
     }
 
     const onboardingEmail = buildOnboardingEmail({
       firstName: parsed.data.administratorFirstName,
       lastName: parsed.data.administratorLastName,
-      email: parsed.data.administratorEmail,
+      email: administratorEmail,
       username: generatedUsername,
       temporaryPassword,
       organizationName: organization.name,
@@ -189,7 +249,7 @@ export async function POST(
     const delivery = await attemptAutomatedOnboardingEmail({
       firstName: parsed.data.administratorFirstName,
       lastName: parsed.data.administratorLastName,
-      email: parsed.data.administratorEmail,
+      email: administratorEmail,
       username: generatedUsername,
       temporaryPassword,
       organizationName: organization.name,
@@ -202,9 +262,11 @@ export async function POST(
       ok: true,
       organization,
       administrator: {
-        email: parsed.data.administratorEmail,
+        email: administratorEmail,
+        name: `${parsed.data.administratorFirstName} ${parsed.data.administratorLastName}`,
         username: generatedUsername,
       },
+      usedExistingAccount: !temporaryPassword,
       temporaryPassword,
       onboarding: {
         deliveryStatus: delivery.status,
@@ -216,13 +278,11 @@ export async function POST(
       },
     });
   } catch (error) {
-    if (createdOrganizationId) {
-      await serviceSupabase.from("organizations").delete().eq("id", createdOrganizationId);
-    }
-
-    if (createdUserId) {
-      await serviceSupabase.auth.admin.deleteUser(createdUserId);
-    }
+    await cleanupProvisioning(serviceSupabase, {
+      createdOrganizationId,
+      createdProfileId,
+      createdUserId,
+    });
 
     return NextResponse.json(
       {

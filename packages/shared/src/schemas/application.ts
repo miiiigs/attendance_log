@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+const supportedTimeZones = new Set(
+  typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [],
+);
+
+function isValidTimeZone(value: string) {
+  if (!value) {
+    return false;
+  }
+
+  if (!supportedTimeZones.size) {
+    return true;
+  }
+
+  return supportedTimeZones.has(value);
+}
+
 function optionalString(maxLength: number, message: string) {
   return z.preprocess(
     (value) => {
@@ -51,7 +67,12 @@ export const organizationApprovalSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z0-9-]{3,20}$/, "Organization code must be 3 to 20 characters using only A-Z, 0-9, or hyphens."),
-  timezone: z.string().trim().min(1, "Timezone is required.").max(120, "Timezone is too long."),
+  timezone: z
+    .string()
+    .trim()
+    .min(1, "Timezone is required.")
+    .max(120, "Timezone is too long.")
+    .refine(isValidTimeZone, "Enter a valid IANA timezone."),
   administratorFirstName: z.string().trim().min(1, "Administrator first name is required.").max(80, "First name is too long."),
   administratorLastName: z.string().trim().min(1, "Administrator last name is required.").max(80, "Last name is too long."),
   administratorEmail: z.string().trim().email("Enter a valid administrator email."),

@@ -4,8 +4,44 @@ import { getPlatformOrganizations } from "../../../lib/data/platform";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlatformOrganizationsPage() {
-  const organizations = await getPlatformOrganizations();
+function buildOrganizationsHref(input: {
+  status: "all" | "active" | "suspended" | "archived";
+  query: string;
+  page: number;
+}) {
+  const params = new URLSearchParams();
+
+  if (input.status !== "active") {
+    params.set("status", input.status);
+  }
+
+  if (input.query) {
+    params.set("query", input.query);
+  }
+
+  if (input.page > 1) {
+    params.set("page", String(input.page));
+  }
+
+  const queryString = params.toString();
+  return queryString ? `/admin/organizations?${queryString}` : "/admin/organizations";
+}
+
+export default async function PlatformOrganizationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; query?: string; page?: string }>;
+}) {
+  const { status, query, page } = await searchParams;
+  const currentStatus =
+    status === "all" || status === "active" || status === "suspended" || status === "archived" ? status : "active";
+  const currentQuery = (query ?? "").trim();
+  const currentPage = Number.parseInt(page ?? "1", 10);
+  const organizations = await getPlatformOrganizations({
+    status: currentStatus,
+    search: currentQuery,
+    page: currentPage,
+  });
 
   return (
     <div className="space-y-6">
@@ -15,6 +51,36 @@ export default async function PlatformOrganizationsPage() {
         <p className="admin-page-subtitle mt-2 max-w-3xl">
           Keep each workspace isolated and operational. Suspension preserves historical data while blocking organization-admin
           operations and member scan activity until the organization is reactivated.
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {(["active", "all", "suspended", "archived"] as const).map((value) => (
+            <a
+              key={value}
+              href={buildOrganizationsHref({ status: value, query: currentQuery, page: 1 })}
+              className={currentStatus === value ? "admin-button" : "admin-button-secondary"}
+            >
+              {value[0]?.toUpperCase() + value.slice(1)}
+            </a>
+          ))}
+        </div>
+
+        <form action="/admin/organizations" className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <input type="hidden" name="status" value={currentStatus} />
+          <input
+            type="search"
+            name="query"
+            defaultValue={currentQuery}
+            className="admin-input"
+            placeholder="Search organization, code, or administrator"
+          />
+          <button type="submit" className="admin-button">
+            Search
+          </button>
+        </form>
+
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          Showing {organizations.items.length} of {organizations.totalCount} matching organizations.
         </p>
       </section>
 
@@ -26,14 +92,14 @@ export default async function PlatformOrganizationsPage() {
               <th>Code</th>
               <th>Administrator</th>
               <th>Members</th>
-              <th>Records</th>
+              <th>Activities</th>
               <th>Status</th>
               <th>Created</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {organizations.map((organization) => (
+            {organizations.items.map((organization) => (
               <tr key={organization.id} className="admin-table-row">
                 <td>
                   <div>
@@ -52,7 +118,7 @@ export default async function PlatformOrganizationsPage() {
                   {organization.memberCount}
                   <span className="text-xs text-[var(--muted)]"> total</span>
                 </td>
-                <td className="text-sm text-[var(--foreground)]">{organization.attendanceRecordCount}</td>
+                <td className="text-sm text-[var(--foreground)]">{organization.activityCount}</td>
                 <td>
                   <span
                     className={
@@ -82,6 +148,36 @@ export default async function PlatformOrganizationsPage() {
           </tbody>
         </table>
       </div>
+
+      {organizations.totalPages > 1 ? (
+        <nav className="flex items-center justify-between">
+          <a
+            href={buildOrganizationsHref({
+              status: currentStatus,
+              query: currentQuery,
+              page: Math.max(1, organizations.page - 1),
+            })}
+            className={organizations.page === 1 ? "admin-button-secondary pointer-events-none opacity-50" : "admin-button-secondary"}
+          >
+            Previous
+          </a>
+          <p className="text-sm text-[var(--muted)]">
+            Page {organizations.page} of {organizations.totalPages}
+          </p>
+          <a
+            href={buildOrganizationsHref({
+              status: currentStatus,
+              query: currentQuery,
+              page: Math.min(organizations.totalPages, organizations.page + 1),
+            })}
+            className={
+              organizations.page >= organizations.totalPages ? "admin-button-secondary pointer-events-none opacity-50" : "admin-button-secondary"
+            }
+          >
+            Next
+          </a>
+        </nav>
+      ) : null}
     </div>
   );
 }

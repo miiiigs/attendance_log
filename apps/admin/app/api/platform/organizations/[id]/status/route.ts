@@ -28,8 +28,6 @@ export async function PATCH(
     .from("organizations")
     .update({
       status: parsed.data.status,
-      approved_by: adminContext.profile.id,
-      approved_at: new Date().toISOString(),
     })
     .eq("id", id)
     .select("id, status")

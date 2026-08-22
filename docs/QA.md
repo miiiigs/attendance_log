@@ -9,7 +9,7 @@ Automated checks run against local Supabase (Docker). Start it first: `pnpm supa
 3. `pnpm test` — vitest (shared + admin)
 4. `pnpm build` — Next admin production build
 5. `pnpm exec supabase test db` — pgTAP (36 assertions across attendance + activity foundation)
-6. `pnpm e2e` — Playwright browser smoke against local Supabase (seeds local test identities, builds the admin app with local endpoints, then exercises: admin login -> start Activity -> QR -> member Time In/Time Out -> cross-org scan rejected -> end Activity -> history preserved)
+6. `pnpm e2e` — Playwright browser smoke against local Supabase (seeds local test identities, builds the admin app with local endpoints, then exercises: platform application -> platform approval -> organization suspend/reactivate plus the existing org admin Activity lifecycle)
 7. `pnpm e2e:install` — install the Playwright chromium browser once
 
 ## Manual Organization Console
@@ -37,6 +37,15 @@ Automated checks run against local Supabase (Docker). Start it first: `pnpm supa
 
 1. As an Org A admin, confirm Org B routes are denied.
 2. As an Org A member, confirm an Org B QR scan is rejected ("QR code does not belong to your organization.").
+
+## Manual Platform Admin
+
+1. Open `/apply` and submit an organization request.
+2. Sign in as a platform admin and confirm the request appears under `/admin/applications`.
+3. Approve the request and confirm the success state shows the organization code, username, and either a temporary password or existing-account reuse notice.
+4. If automated email is unavailable, confirm Copy Subject and Copy Email Body are available.
+5. Confirm the new organization appears under `/admin/organizations`.
+6. Suspend the organization, verify the status changes to suspended, then reactivate it.
 
 ## Cleanup
 

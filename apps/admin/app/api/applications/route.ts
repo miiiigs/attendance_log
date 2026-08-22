@@ -21,6 +21,15 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json(
+        {
+          error: "A pending application already exists for this organization and contact email.",
+        },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

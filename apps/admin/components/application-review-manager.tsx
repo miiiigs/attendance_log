@@ -1,7 +1,6 @@
 "use client";
 
 import { DEFAULT_TIMEZONE } from "@attendance/shared";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { normalizeOrganizationCode } from "../lib/organizations";
 
@@ -41,6 +40,17 @@ type FeedbackState = {
     fullEmail: string;
     reason: string | null;
   };
+  organization?: {
+    id: string;
+    code: string;
+  };
+  administrator?: {
+    name: string;
+    email: string;
+    username: string;
+  };
+  temporaryPassword?: string | null;
+  usedExistingAccount?: boolean;
 };
 
 function buildInitialDraft(application: ApplicationItem): ReviewDraft {
@@ -66,8 +76,12 @@ function statusChip(status: ApplicationItem["status"]) {
   return "admin-chip admin-chip-warning";
 }
 
+async function copyToClipboard(value: string) {
+  await navigator.clipboard.writeText(value);
+}
+
 export function ApplicationReviewManager({ applications }: { applications: ApplicationItem[] }) {
-  const router = useRouter();
+  const [items, setItems] = useState(applications);
   const [activeId, setActiveId] = useState<string | null>(applications.find((application) => application.status === "pending")?.id ?? null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ReviewDraft>>(
@@ -79,7 +93,7 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
     setDrafts((current) => ({
       ...current,
       [id]: {
-        ...(current[id] ?? buildInitialDraft(applications.find((application) => application.id === id)!)),
+        ...(current[id] ?? buildInitialDraft(items.find((application) => application.id === id)!)),
         [field]: field === "organizationCode" ? normalizeOrganizationCode(value) : value,
       },
     }));
@@ -105,7 +119,10 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
       | {
           error?: string;
           onboarding?: FeedbackState["onboarding"];
-          organization?: { code: string };
+          organization?: { id: string; code: string };
+          administrator?: { name: string; email: string; username: string };
+          temporaryPassword?: string | null;
+          usedExistingAccount?: boolean;
         }
       | null;
 
@@ -121,19 +138,38 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
       return;
     }
 
+    setItems((current) =>
+      current.map((application) =>
+        application.id === id
+          ? {
+              ...application,
+              status: "approved",
+              reviewedAt: new Date().toISOString(),
+            }
+          : application,
+      ),
+    );
     setFeedbackById((current) => ({
       ...current,
       [id]: {
         kind: "success",
         message: `Organization approved. ${result?.organization?.code ?? "Credentials"} created successfully.`,
         onboarding: result?.onboarding,
+        organization: result?.organization,
+        administrator: result?.administrator,
+        temporaryPassword: result?.temporaryPassword,
+        usedExistingAccount: result?.usedExistingAccount ?? false,
       },
     }));
     setSubmittingId(null);
-    router.refresh();
   }
 
   async function handleReject(id: string) {
+    const confirmed = window.confirm("Reject this organization application? No organization or membership will be created.");
+    if (!confirmed) {
+      return;
+    }
+
     setSubmittingId(id);
     setFeedbackById((current) => {
       const next = { ...current };
@@ -159,6 +195,17 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
       return;
     }
 
+    setItems((current) =>
+      current.map((application) =>
+        application.id === id
+          ? {
+              ...application,
+              status: "rejected",
+              reviewedAt: new Date().toISOString(),
+            }
+          : application,
+      ),
+    );
     setFeedbackById((current) => ({
       ...current,
       [id]: {
@@ -167,12 +214,19 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
       },
     }));
     setSubmittingId(null);
-    router.refresh();
+  }
+
+  if (!items.length) {
+    return (
+      <div className="admin-card p-6">
+        <p className="text-sm text-[var(--muted)]">No applications match the current filters.</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      {applications.map((application) => {
+      {items.map((application) => {
         const draft = drafts[application.id] ?? buildInitialDraft(application);
         const feedback = feedbackById[application.id];
         const isOpen = activeId === application.id;
@@ -199,7 +253,7 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                       .join(" · ")}
                   </p>
                 ) : null}
-                {application.message ? <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">{application.message}</p> : null}
+                {application.message ? <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">{application.message}</p> : null}
               </div>
 
               {application.status === "pending" ? (
@@ -217,48 +271,67 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
             {isOpen && application.status === "pending" ? (
               <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="admin-field-label">Organization Name</label>
+                  <label className="admin-field-label" htmlFor={`organization-name-${application.id}`}>
+                    Organization Name
+                  </label>
                   <input
+                    id={`organization-name-${application.id}`}
                     className="admin-input"
                     value={draft.organizationName}
                     onChange={(event) => updateDraft(application.id, "organizationName", event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="admin-field-label">Organization Code</label>
+                  <label className="admin-field-label" htmlFor={`organization-code-${application.id}`}>
+                    Organization Code
+                  </label>
                   <input
+                    id={`organization-code-${application.id}`}
                     className="admin-input"
                     value={draft.organizationCode}
                     onChange={(event) => updateDraft(application.id, "organizationCode", event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="admin-field-label">Timezone</label>
+                  <label className="admin-field-label" htmlFor={`organization-timezone-${application.id}`}>
+                    Timezone
+                  </label>
                   <input
+                    id={`organization-timezone-${application.id}`}
                     className="admin-input"
                     value={draft.timezone}
                     onChange={(event) => updateDraft(application.id, "timezone", event.target.value)}
+                    placeholder="Asia/Manila"
                   />
                 </div>
                 <div>
-                  <label className="admin-field-label">Administrator First Name</label>
+                  <label className="admin-field-label" htmlFor={`administrator-first-name-${application.id}`}>
+                    Administrator First Name
+                  </label>
                   <input
+                    id={`administrator-first-name-${application.id}`}
                     className="admin-input"
                     value={draft.administratorFirstName}
                     onChange={(event) => updateDraft(application.id, "administratorFirstName", event.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="admin-field-label">Administrator Last Name</label>
+                  <label className="admin-field-label" htmlFor={`administrator-last-name-${application.id}`}>
+                    Administrator Last Name
+                  </label>
                   <input
+                    id={`administrator-last-name-${application.id}`}
                     className="admin-input"
                     value={draft.administratorLastName}
                     onChange={(event) => updateDraft(application.id, "administratorLastName", event.target.value)}
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="admin-field-label">Administrator Email</label>
+                  <label className="admin-field-label" htmlFor={`administrator-email-${application.id}`}>
+                    Administrator Email
+                  </label>
                   <input
+                    id={`administrator-email-${application.id}`}
                     className="admin-input"
                     type="email"
                     value={draft.administratorEmail}
@@ -282,8 +355,35 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                 }`}
               >
                 <p className="font-semibold">{feedback.message}</p>
+
+                {feedback.kind === "success" && feedback.organization && feedback.administrator ? (
+                  <div className="mt-3 grid gap-3 text-sm text-[var(--foreground)] md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Organization Code</p>
+                      <p className="mt-1 font-mono">{feedback.organization.code}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Administrator</p>
+                      <p className="mt-1">{feedback.administrator.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Username</p>
+                      <p className="mt-1 font-mono">{feedback.administrator.username}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Password</p>
+                      <p className="mt-1 font-mono">{feedback.temporaryPassword ?? "Existing Activity Log password"}</p>
+                    </div>
+                    {feedback.usedExistingAccount ? (
+                      <p className="md:col-span-2 text-sm text-[var(--muted)]">
+                        Existing Activity Log account reused. No password reset was performed.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {feedback.onboarding ? (
-                  <div className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
+                  <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
                     <p>
                       Delivery status: <strong>{feedback.onboarding.deliveryStatus}</strong>
                     </p>
@@ -292,11 +392,29 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                     </p>
                     {feedback.onboarding.reason ? <p>{feedback.onboarding.reason}</p> : null}
                     {feedback.onboarding.deliveryStatus !== "sent" ? (
-                      <div className="admin-card-flat mt-3 p-4">
+                      <div className="admin-card-flat p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Manual email fallback</p>
-                        <p className="mt-3 text-sm font-semibold text-[var(--foreground)]">{feedback.onboarding.subject}</p>
-                        <pre className="mt-3 whitespace-pre-wrap font-mono text-xs leading-6 text-[var(--foreground)]">
-                          {feedback.onboarding.fullEmail}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="admin-button-secondary"
+                            onClick={() => copyToClipboard(feedback.onboarding?.subject ?? "")}
+                          >
+                            Copy Subject
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-button-secondary"
+                            onClick={() => copyToClipboard(feedback.onboarding?.body ?? "")}
+                          >
+                            Copy Email Body
+                          </button>
+                        </div>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Subject</p>
+                        <p className="mt-2 text-sm font-semibold text-[var(--foreground)]">{feedback.onboarding.subject}</p>
+                        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Body</p>
+                        <pre className="mt-2 whitespace-pre-wrap font-mono text-xs leading-6 text-[var(--foreground)]">
+                          {feedback.onboarding.body}
                         </pre>
                       </div>
                     ) : null}

@@ -163,7 +163,7 @@ export default async function PlatformAdminPage() {
                         </span>
                       </td>
                       <td className="text-xs text-[var(--muted)]">
-                        {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(organization.created_at))}
+                        {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(organization.createdAt))}
                       </td>
                     </tr>
                   ))}
