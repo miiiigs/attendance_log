@@ -1,25 +1,18 @@
-import { SettingsForm } from "../../../components/settings-form";
-import { getSettings } from "../../../lib/data/admin";
+import { redirect } from "next/navigation";
+import { resolveLegacyOrg } from "../../../lib/legacy-redirect";
 
-export default async function SettingsPage() {
-  const settings = await getSettings();
+export const dynamic = "force-dynamic";
 
-  if (!settings) {
-    return (
-      <section className="admin-card p-6">
-        <p className="text-sm text-[var(--muted)]">No settings row found. Seed the database first.</p>
-      </section>
-    );
+export default async function SettingsLegacyRedirectPage() {
+  const resolution = await resolveLegacyOrg();
+
+  if (resolution.kind === "single") {
+    redirect(`/org/${resolution.slug}/settings`);
   }
 
-  return (
-    <section className="space-y-5">
-      <div>
-        <p className="admin-eyebrow">Settings</p>
-        <h1 className="admin-page-title mt-3">Organization defaults</h1>
-        <p className="admin-page-subtitle mt-2">Control the attendance rules and organization-wide preferences used across the system.</p>
-      </div>
-      <SettingsForm settings={settings} />
-    </section>
-  );
+  if (resolution.kind === "platform") {
+    redirect("/admin");
+  }
+
+  redirect("/choose-org");
 }

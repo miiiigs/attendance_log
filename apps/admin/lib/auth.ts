@@ -105,22 +105,6 @@ export async function requireAdminOrOrgAdmin() {
   return { supabase, session, profile: profile! };
 }
 
-export async function resolveDefaultOrgSlug(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
-  const { data: organizationId } = await supabase.rpc("get_default_organization_id");
-
-  if (typeof organizationId !== "string") {
-    return null;
-  }
-
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("slug")
-    .eq("id", organizationId)
-    .maybeSingle();
-
-  return organization?.slug ?? null;
-}
-
 export async function requireAdminApiContext() {
   const supabase = await createSupabaseServerClient();
   const {

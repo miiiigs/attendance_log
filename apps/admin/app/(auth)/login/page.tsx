@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { ADMIN_PORTAL_NAME, APP_NAME } from "@attendance/shared";
 import { LoginForm } from "../../../components/login-form";

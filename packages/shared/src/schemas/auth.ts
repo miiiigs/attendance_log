@@ -12,16 +12,6 @@ export function usernameToAuthEmail(username: string) {
   return `${username.trim().toLowerCase()}@attendance.local`;
 }
 
-export const personLoginSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .regex(/^\d{9}$/, "Enter your 9-digit username."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
-});
-
-export type PersonLoginInput = z.infer<typeof personLoginSchema>;
-
 export const organizationLoginSchema = z.object({
   organizationCode: z
     .string()

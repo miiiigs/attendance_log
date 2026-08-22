@@ -1,14 +1,18 @@
-import { QrPanel } from "../../../components/qr-panel";
+import { redirect } from "next/navigation";
+import { resolveLegacyOrg } from "../../../lib/legacy-redirect";
 
-export default function QrPage() {
-  return (
-    <section className="space-y-5">
-      <div>
-        <p className="admin-eyebrow">Attendance QR</p>
-        <h1 className="admin-page-title mt-3">Daily attendance QR</h1>
-        <p className="admin-page-subtitle mt-2">Generate and manage the QR people scan from the mobile app.</p>
-      </div>
-      <QrPanel />
-    </section>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function QrLegacyRedirectPage() {
+  const resolution = await resolveLegacyOrg();
+
+  if (resolution.kind === "single") {
+    redirect(`/org/${resolution.slug}/current-activity`);
+  }
+
+  if (resolution.kind === "platform") {
+    redirect("/admin");
+  }
+
+  redirect("/choose-org");
 }

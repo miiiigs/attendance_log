@@ -1,19 +1,20 @@
 import { redirect } from "next/navigation";
-import { requireAdminOrOrgAdmin, resolveDefaultOrgSlug } from "../../lib/auth";
+import { requireAdminOrOrgAdmin } from "../../lib/auth";
+import { resolveLegacyOrg } from "../../lib/legacy-redirect";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomeRedirectPage() {
-  const { supabase, profile } = await requireAdminOrOrgAdmin();
+  await requireAdminOrOrgAdmin();
+  const resolution = await resolveLegacyOrg();
 
-  if (profile.platform_role === "platform_admin") {
+  if (resolution.kind === "single") {
+    redirect(`/org/${resolution.slug}/dashboard`);
+  }
+
+  if (resolution.kind === "platform") {
     redirect("/admin");
   }
 
-  const slug = await resolveDefaultOrgSlug(supabase);
-  if (slug) {
-    redirect(`/org/${slug}/dashboard`);
-  }
-
-  redirect("/admin");
+  redirect("/choose-org");
 }

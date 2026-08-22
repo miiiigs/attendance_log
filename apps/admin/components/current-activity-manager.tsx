@@ -223,13 +223,13 @@ export function CurrentActivityManager({
                 <button type="button" onClick={() => setConfirmEnd(false)} disabled={loading} className="admin-button-secondary">
                   Cancel
                 </button>
-                <button type="button" onClick={endActivity} disabled={loading} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
+                <button type="button" data-testid="end-activity-confirm" onClick={endActivity} disabled={loading} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
                   {loading ? "Ending..." : "End Activity"}
                 </button>
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmEnd(true)} className="admin-button-warning mt-4 w-full justify-start">
+            <button type="button" data-testid="end-activity-trigger" onClick={() => setConfirmEnd(true)} className="admin-button-warning mt-4 w-full justify-start">
               <Square className="h-4 w-4" />
               End Activity
             </button>

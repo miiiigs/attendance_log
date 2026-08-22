@@ -294,10 +294,27 @@ export interface OrgPersonRow {
   membershipStatus: string;
 }
 
-export async function getOrgPeople(orgId: string, options: { query?: string; status?: string } = {}) {
+export interface OrgPersonPage {
+  people: OrgPersonRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  activeCount: number;
+  inactiveCount: number;
+}
+
+export type OrgPeopleSort = "name_asc" | "name_desc" | "newest";
+
+export async function getOrgPeople(
+  orgId: string,
+  options: { page?: number; pageSize?: number; query?: string; status?: string; sort?: OrgPeopleSort } = {},
+): Promise<OrgPersonPage> {
   const supabase = await createSupabaseServerClient();
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.min(50, Math.max(1, options.pageSize ?? 15));
   const query = options.query?.trim() ?? "";
   const status = options.status ?? "all";
+  const sort = options.sort ?? "newest";
 
   let builder = supabase
     .from("organization_memberships")
@@ -311,31 +328,52 @@ export async function getOrgPeople(orgId: string, options: { query?: string; sta
 
   const { data: memberships } = await builder;
 
-  const rows: OrgPersonRow[] = (memberships ?? [])
-    .map((membership) => {
-      const profile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles;
-      return {
-        userId: profile?.id ?? membership.id,
-        membershipId: membership.id,
-        username: membership.username,
-        firstName: profile?.first_name ?? "",
-        lastName: profile?.last_name ?? "",
-        email: profile?.email ?? "",
-        membershipRole: membership.role,
-        membershipStatus: membership.status,
-      };
-    })
-    .filter((row) => {
-      if (!query) {
-        return true;
-      }
-      return [row.firstName, row.lastName, row.username, row.email]
-        .join(" ")
-        .toLowerCase()
-        .includes(query.toLowerCase());
-    });
+  const rows: OrgPersonRow[] = (memberships ?? []).map((membership) => {
+    const profile = Array.isArray(membership.profiles) ? membership.profiles[0] : membership.profiles;
+    return {
+      userId: profile?.id ?? membership.id,
+      membershipId: membership.id,
+      username: membership.username,
+      firstName: profile?.first_name ?? "",
+      lastName: profile?.last_name ?? "",
+      email: profile?.email ?? "",
+      membershipRole: membership.role,
+      membershipStatus: membership.status,
+    };
+  });
 
-  return rows;
+  const activeCount = rows.filter((row) => row.membershipStatus === "active").length;
+  const inactiveCount = rows.length - activeCount;
+
+  const search = query.toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (!search) {
+      return true;
+    }
+    return [row.firstName, row.lastName, getFullName(row.firstName, row.lastName), row.username, row.email]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
+
+  if (sort === "name_asc" || sort === "name_desc") {
+    filtered.sort((first, second) => {
+      const comparison = getFullName(first.firstName, first.lastName).localeCompare(
+        getFullName(second.firstName, second.lastName),
+        undefined,
+        { sensitivity: "base" },
+      );
+      return sort === "name_asc" ? comparison : -comparison;
+    });
+  } else {
+    filtered.sort((first, second) => first.membershipId.localeCompare(second.membershipId));
+  }
+
+  const total = filtered.length;
+  const start = (page - 1) * pageSize;
+  const people = filtered.slice(start, start + pageSize);
+
+  return { people, total, page, pageSize, activeCount, inactiveCount };
 }
 
 export async function getOrgSettings(orgId: string) {

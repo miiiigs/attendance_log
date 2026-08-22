@@ -1,77 +1,64 @@
-# People Attendance System
+# Activity Log
 
-People Attendance System is a lightweight attendance MVP for a single organization. It includes:
+Activity Log is a multi-tenant activity-tracking platform: a Next.js admin dashboard, an Expo mobile app, and a Supabase backend with RLS and QR-backed activity scanning.
 
-- an Expo mobile app for people
-- a Next.js admin dashboard
-- a Supabase backend with RLS and QR-backed attendance mutation
+- **Platform Admin** manages organizations and applications (`/admin`).
+- **Organization Admin** runs each tenant's console (`/org/[slug]/*`): Activities, Current Activity, People, Settings.
+- **People** scan Activity QR codes from the mobile app (first scan = Time In, second = Time Out).
 
 ## Repository Structure
 
 ```text
-apps/admin
-apps/mobile
-packages/shared
-supabase
-docs
-scripts
+apps/admin      Next.js 16 App Router admin dashboard (platform + organization consoles)
+apps/mobile     Expo Router 57 mobile app
+packages/shared @attendance/shared workspace package (zod schemas, constants, domain types, date/time helpers)
+supabase        migrations, seed.sql, pgTAP tests, local config.toml
+e2e             Playwright local browser smoke test
+scripts         tsx one-offs (bootstrap, auth sync, E2E seed/build)
+docs            ARCHITECTURE / DATABASE / SECURITY / DEPLOYMENT / QA
 ```
 
 ## Prerequisites
 
 - Node.js 22+
 - pnpm 11+
-- Supabase CLI
-- Expo Go or an Android emulator/device
+- Supabase CLI (`pnpm exec supabase`)
+- Expo Go or an Android emulator/device (mobile)
+- Docker (local Supabase)
 
 ## Setup
 
 1. Copy `.env.example` values into app-specific `.env.local` files.
 2. Run `pnpm install`.
 3. Start Supabase with `pnpm supabase:start`.
-4. Reset the database with `pnpm supabase:reset`.
-5. Bootstrap the first admin:
+4. Reset the database with `pnpm supabase:reset` (applies all migrations + seed.sql).
+5. Bootstrap the platform admin:
 
 ```bash
 pnpm bootstrap:admin
 ```
 
-Default bootstrap admin credentials:
+Default bootstrap admin credentials: username `user`, password `password`. The bootstrap script creates the Supabase auth identity as `user@attendance.local` and seeds the SCPPA organization membership.
 
-- username: `user`
-- password: `password`
-- profile name: `Admin User`
+## Supported Routes
 
-The bootstrap script creates the underlying Supabase auth email as `user@attendance.local` and the admin login form accepts the username `user`.
-
-## Onboarding Email
-
-Onboarding email delivery supports an optional self-hosted n8n webhook plus Gmail.
-
-You need:
-
-1. an optional self-hosted n8n instance
-2. a Gmail or Google Workspace account connected to n8n
-3. an onboarding webhook workflow
-4. the webhook URL
-5. a shared webhook secret
-
-Server environment variables:
-
-```env
-N8N_ONBOARDING_WEBHOOK_URL=
-N8N_ONBOARDING_WEBHOOK_SECRET=
+```text
+PUBLIC        /apply                 organization application
+PLATFORM      /admin                 platform overview
+              /admin/applications
+              /admin/organizations
+              /admin/organizations/[id]
+ORGANIZATION  /org/[slug]/dashboard
+              /org/[slug]/activities
+              /org/[slug]/activities/[id]
+              /org/[slug]/current-activity
+              /org/[slug]/people
+              /org/[slug]/people/[id]
+              /org/[slug]/settings
+MOBILE        organization code + username + password login
 ```
 
-Leave both empty if automated onboarding email is not available.
-
-Person creation still succeeds, and the admin UI returns:
-
-- the generated username
-- the one-time temporary password
-- a ready-to-send subject
-- a ready-to-send email body
-- copy actions for manual delivery
+Legacy single-organization routes (`/attendance`, `/qr`, `/employees`, `/people`) redirect authenticated organization admins to the matching organization console. Platform admins land on `/admin`.
 
 ## Development
 
@@ -86,13 +73,18 @@ pnpm dev:mobile
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm --filter admin build
+pnpm build
+pnpm exec supabase test db   # pgTAP, requires local Supabase running
+pnpm e2e                     # local browser smoke (starts local-key admin build + Playwright)
+pnpm e2e:install             # download the Playwright chromium browser once
 ```
 
 ## Notes
 
-- attendance writes must go through `scan_attendance`
-- service-role operations stay server-side only
-- attendance dates are derived in `Asia/Manila`
+- Login identity is an organization code + username (membership-scoped), not an email.
+- Attendance/activity writes always go through `scan_activity`/`scan_attendance` database functions.
+- QR tokens are stored hashed; raw display tokens are retained in an httpOnly admin cookie.
+- Activity timestamps use each organization's configured timezone.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only (admin server code + scripts). Never in browser/Expo bundles.
 
-See [docs/ARCHITECTURE.md](/C:/dev/attendance_log/docs/ARCHITECTURE.md), [docs/DATABASE.md](/C:/dev/attendance_log/docs/DATABASE.md), [docs/SECURITY.md](/C:/dev/attendance_log/docs/SECURITY.md), [docs/QA.md](/C:/dev/attendance_log/docs/QA.md), and [docs/DEPLOYMENT.md](/C:/dev/attendance_log/docs/DEPLOYMENT.md) for details.
+See `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/SECURITY.md`, `docs/QA.md`, and `docs/DEPLOYMENT.md` for details.
