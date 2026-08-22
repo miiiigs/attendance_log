@@ -33,6 +33,9 @@ Authorization is enforced at multiple layers:
 - security-definer authorization helpers (`is_platform_admin`, `is_organization_admin`, `is_organization_member`, `get_own_membership_id`)
 - organization-route guards (`requireOrgAdmin`) that resolve the organization from the route slug and verify an active organization-admin membership
 - security-definer RPCs for every privileged mutation
+- validated server-side user lookups (`supabase.auth.getUser()`) for platform/org
+  admin trust decisions; cookie-backed `getSession()` is not used as authority for
+  sensitive route guards
 
 Platform admins may enter organization consoles; organization admins never gain platform scope.
 
@@ -77,6 +80,16 @@ Automated onboarding email is optional and server-only:
 - `N8N_ONBOARDING_WEBHOOK_URL` + `N8N_ONBOARDING_WEBHOOK_SECRET` (shared via the `X-Attendance-Webhook-Secret` header)
 - empty = manual email fallback returned to the administrator
 - plaintext temporary passwords remain in short-lived in-memory responses only
+
+## Platform Application Controls
+
+- `/apply` only inserts review requests; anonymous users cannot list, approve, reject,
+  or inspect organization applications
+- duplicate pending applications for the same normalized organization name + contact
+  email are rejected at the database layer
+- platform approval runs on trusted server code, creates the organization and admin
+  membership first-class, reuses existing global users when safe, and treats onboarding
+  email delivery as best-effort only
 
 ## Known Limitation
 
