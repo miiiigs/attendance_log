@@ -125,15 +125,15 @@ export function AdminShell({
 }: {
   children: React.ReactNode;
   profile: {
-    first_name: string;
-    last_name: string;
+    first_name?: string | null;
+    last_name?: string | null;
   };
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const todayLabel = useMemo(() => CURRENT_DATE_LABEL, []);
-  const name = getFullName(profile.first_name, profile.last_name);
-  const initials = `${profile.first_name[0] ?? ""}${profile.last_name[0] ?? ""}`.toUpperCase();
+  const name = getFullName(profile.first_name ?? "Admin", profile.last_name ?? "User");
+  const initials = `${profile.first_name?.[0] ?? "A"}${profile.last_name?.[0] ?? "U"}`.toUpperCase();
   const currentItem =
     navigation.find((item) => item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`)) ??
     navigation[0]!;

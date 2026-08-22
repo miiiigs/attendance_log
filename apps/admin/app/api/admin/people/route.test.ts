@@ -165,7 +165,8 @@ describe("POST /api/admin/people", () => {
           message: "Could not find the function public.generate_next_username(target_year) in the schema cache",
         },
       })
-      .mockResolvedValueOnce({ data: "202600001", error: null });
+      .mockResolvedValueOnce({ data: "202600001", error: null })
+      .mockResolvedValueOnce({ data: "11111111-1111-1111-1111-111111111111", error: null });
 
     createSupabaseServiceClient.mockReturnValue(supabase);
     createSupabaseServerClient.mockResolvedValue({ rpc });

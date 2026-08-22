@@ -1,0 +1,312 @@
+"use client";
+
+import { DEFAULT_TIMEZONE } from "@attendance/shared";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { normalizeOrganizationCode } from "../lib/organizations";
+
+type ApplicationItem = {
+  id: string;
+  organizationName: string;
+  contactFirstName: string;
+  contactLastName: string;
+  contactEmail: string;
+  organizationType: string | null;
+  estimatedMemberCount: number | null;
+  message: string | null;
+  status: "pending" | "approved" | "rejected";
+  reviewedAt: string | null;
+  createdAt: string;
+  suggestedCode: string;
+  suggestedTimezone: string;
+};
+
+type ReviewDraft = {
+  organizationName: string;
+  organizationCode: string;
+  timezone: string;
+  administratorFirstName: string;
+  administratorLastName: string;
+  administratorEmail: string;
+};
+
+type FeedbackState = {
+  kind: "success" | "error";
+  message: string;
+  onboarding?: {
+    deliveryStatus: string;
+    recipient: string;
+    subject: string;
+    body: string;
+    fullEmail: string;
+    reason: string | null;
+  };
+};
+
+function buildInitialDraft(application: ApplicationItem): ReviewDraft {
+  return {
+    organizationName: application.organizationName,
+    organizationCode: application.suggestedCode,
+    timezone: application.suggestedTimezone || DEFAULT_TIMEZONE,
+    administratorFirstName: application.contactFirstName,
+    administratorLastName: application.contactLastName,
+    administratorEmail: application.contactEmail,
+  };
+}
+
+function statusChip(status: ApplicationItem["status"]) {
+  if (status === "approved") {
+    return "admin-chip admin-chip-success";
+  }
+
+  if (status === "rejected") {
+    return "admin-chip admin-chip-danger";
+  }
+
+  return "admin-chip admin-chip-warning";
+}
+
+export function ApplicationReviewManager({ applications }: { applications: ApplicationItem[] }) {
+  const router = useRouter();
+  const [activeId, setActiveId] = useState<string | null>(applications.find((application) => application.status === "pending")?.id ?? null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, ReviewDraft>>(
+    Object.fromEntries(applications.map((application) => [application.id, buildInitialDraft(application)])),
+  );
+  const [feedbackById, setFeedbackById] = useState<Record<string, FeedbackState>>({});
+
+  function updateDraft(id: string, field: keyof ReviewDraft, value: string) {
+    setDrafts((current) => ({
+      ...current,
+      [id]: {
+        ...(current[id] ?? buildInitialDraft(applications.find((application) => application.id === id)!)),
+        [field]: field === "organizationCode" ? normalizeOrganizationCode(value) : value,
+      },
+    }));
+  }
+
+  async function handleApprove(id: string) {
+    setSubmittingId(id);
+    setFeedbackById((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+
+    const response = await fetch(`/api/platform/applications/${id}/approve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(drafts[id]),
+    });
+
+    const result = (await response.json().catch(() => null)) as
+      | {
+          error?: string;
+          onboarding?: FeedbackState["onboarding"];
+          organization?: { code: string };
+        }
+      | null;
+
+    if (!response.ok) {
+      setFeedbackById((current) => ({
+        ...current,
+        [id]: {
+          kind: "error",
+          message: result?.error ?? "Unable to approve the application.",
+        },
+      }));
+      setSubmittingId(null);
+      return;
+    }
+
+    setFeedbackById((current) => ({
+      ...current,
+      [id]: {
+        kind: "success",
+        message: `Organization approved. ${result?.organization?.code ?? "Credentials"} created successfully.`,
+        onboarding: result?.onboarding,
+      },
+    }));
+    setSubmittingId(null);
+    router.refresh();
+  }
+
+  async function handleReject(id: string) {
+    setSubmittingId(id);
+    setFeedbackById((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+
+    const response = await fetch(`/api/platform/applications/${id}/reject`, {
+      method: "POST",
+    });
+
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      setFeedbackById((current) => ({
+        ...current,
+        [id]: {
+          kind: "error",
+          message: result?.error ?? "Unable to reject the application.",
+        },
+      }));
+      setSubmittingId(null);
+      return;
+    }
+
+    setFeedbackById((current) => ({
+      ...current,
+      [id]: {
+        kind: "success",
+        message: "Application rejected.",
+      },
+    }));
+    setSubmittingId(null);
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-4">
+      {applications.map((application) => {
+        const draft = drafts[application.id] ?? buildInitialDraft(application);
+        const feedback = feedbackById[application.id];
+        const isOpen = activeId === application.id;
+        const isSubmitting = submittingId === application.id;
+
+        return (
+          <article key={application.id} className="admin-card p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">{application.organizationName}</h2>
+                  <span className={statusChip(application.status)}>{application.status}</span>
+                </div>
+                <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                  {application.contactFirstName} {application.contactLastName} · {application.contactEmail}
+                </p>
+                <p className="text-sm leading-7 text-[var(--muted)]">
+                  Submitted {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(application.createdAt))}
+                </p>
+                {application.organizationType || application.estimatedMemberCount ? (
+                  <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+                    {[application.organizationType, application.estimatedMemberCount ? `${application.estimatedMemberCount} estimated members` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                {application.message ? <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">{application.message}</p> : null}
+              </div>
+
+              {application.status === "pending" ? (
+                <div className="flex gap-2">
+                  <button type="button" className="admin-button-secondary" onClick={() => setActiveId(isOpen ? null : application.id)}>
+                    {isOpen ? "Hide Review" : "Review"}
+                  </button>
+                  <button type="button" className="admin-button-danger" onClick={() => handleReject(application.id)} disabled={isSubmitting}>
+                    {isSubmitting ? "Working..." : "Reject"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {isOpen && application.status === "pending" ? (
+              <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="admin-field-label">Organization Name</label>
+                  <input
+                    className="admin-input"
+                    value={draft.organizationName}
+                    onChange={(event) => updateDraft(application.id, "organizationName", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="admin-field-label">Organization Code</label>
+                  <input
+                    className="admin-input"
+                    value={draft.organizationCode}
+                    onChange={(event) => updateDraft(application.id, "organizationCode", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="admin-field-label">Timezone</label>
+                  <input
+                    className="admin-input"
+                    value={draft.timezone}
+                    onChange={(event) => updateDraft(application.id, "timezone", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="admin-field-label">Administrator First Name</label>
+                  <input
+                    className="admin-input"
+                    value={draft.administratorFirstName}
+                    onChange={(event) => updateDraft(application.id, "administratorFirstName", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="admin-field-label">Administrator Last Name</label>
+                  <input
+                    className="admin-input"
+                    value={draft.administratorLastName}
+                    onChange={(event) => updateDraft(application.id, "administratorLastName", event.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="admin-field-label">Administrator Email</label>
+                  <input
+                    className="admin-input"
+                    type="email"
+                    value={draft.administratorEmail}
+                    onChange={(event) => updateDraft(application.id, "administratorEmail", event.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2 flex justify-end">
+                  <button type="button" className="admin-button" onClick={() => handleApprove(application.id)} disabled={isSubmitting}>
+                    {isSubmitting ? "Approving..." : "Approve Organization"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {feedback ? (
+              <div
+                className={`mt-5 rounded-2xl px-4 py-4 text-sm ${
+                  feedback.kind === "success"
+                    ? "border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--foreground)]"
+                    : "border border-[#fecaca] bg-[var(--danger-soft)] text-[var(--danger)]"
+                }`}
+              >
+                <p className="font-semibold">{feedback.message}</p>
+                {feedback.onboarding ? (
+                  <div className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
+                    <p>
+                      Delivery status: <strong>{feedback.onboarding.deliveryStatus}</strong>
+                    </p>
+                    <p>
+                      Recipient: <strong>{feedback.onboarding.recipient}</strong>
+                    </p>
+                    {feedback.onboarding.reason ? <p>{feedback.onboarding.reason}</p> : null}
+                    {feedback.onboarding.deliveryStatus !== "sent" ? (
+                      <div className="admin-card-flat mt-3 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Manual email fallback</p>
+                        <p className="mt-3 text-sm font-semibold text-[var(--foreground)]">{feedback.onboarding.subject}</p>
+                        <pre className="mt-3 whitespace-pre-wrap font-mono text-xs leading-6 text-[var(--foreground)]">
+                          {feedback.onboarding.fullEmail}
+                        </pre>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+}

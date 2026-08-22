@@ -59,6 +59,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: usernameError?.message ?? "Unable to generate username." }, { status: 400 });
   }
 
+  const { data: organizationId, error: organizationIdError } = await userScopedSupabase.rpc(
+    "get_default_organization_id",
+  );
+
+  if (organizationIdError || typeof organizationId !== "string") {
+    return NextResponse.json(
+      { error: organizationIdError?.message ?? "No active organization context found." },
+      { status: 400 },
+    );
+  }
+
   const supabase = createSupabaseServiceClient();
   const temporaryPassword = generateTemporaryPassword();
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
@@ -92,6 +103,20 @@ export async function POST(request: Request) {
   if (profileError || !profile) {
     await supabase.auth.admin.deleteUser(authUser.user.id);
     return NextResponse.json({ error: profileError?.message ?? "Unable to create profile." }, { status: 400 });
+  }
+
+  const { error: membershipError } = await supabase.from("organization_memberships").insert({
+    organization_id: organizationId,
+    user_id: authUser.user.id,
+    username,
+    role: "member",
+    status: "active",
+  });
+
+  if (membershipError) {
+    await supabase.from("profiles").delete().eq("id", authUser.user.id);
+    await supabase.auth.admin.deleteUser(authUser.user.id);
+    return NextResponse.json({ error: membershipError.message ?? "Unable to create membership." }, { status: 400 });
   }
 
   const organizationName = await getOrganizationName();

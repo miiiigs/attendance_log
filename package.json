@@ -11,6 +11,7 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "bootstrap:platform-admin": "tsx scripts/bootstrap-admin.ts",
     "sync:auth-usernames": "tsx scripts/sync-auth-usernames.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

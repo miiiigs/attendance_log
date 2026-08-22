@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { ADMIN_PORTAL_NAME, ORGANIZATION_NAME, ORGANIZATION_SHORT_NAME } from "@attendance/shared";
+import { ADMIN_PORTAL_NAME, APP_NAME } from "@attendance/shared";
 import { LoginForm } from "../../../components/login-form";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
@@ -21,11 +21,11 @@ export default async function LoginPage() {
       <div className="flex min-h-screen">
         <section className="hidden w-[24rem] shrink-0 flex-col justify-between bg-[var(--sidebar)] px-12 py-12 text-white lg:flex">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] p-1.5">
-              <Image src="/scppa-logo.png" alt={`${ORGANIZATION_SHORT_NAME} logo`} width={38} height={38} className="h-9 w-9 object-contain" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] text-sm font-bold tracking-[0.18em] text-white">
+              AL
             </div>
             <div>
-              <p className="max-w-[220px] text-sm font-semibold leading-tight">{ORGANIZATION_NAME}</p>
+              <p className="max-w-[220px] text-sm font-semibold leading-tight">{APP_NAME}</p>
               <p className="mt-1 text-[11px] leading-none text-[rgba(255,255,255,0.36)]">{ADMIN_PORTAL_NAME}</p>
             </div>
           </div>
@@ -34,36 +34,43 @@ export default async function LoginPage() {
             <h1 className="text-3xl font-semibold leading-tight tracking-[-0.04em]">
               Secure attendance.
               <br />
-              Formal administration.
+              Multi-organization control.
             </h1>
             <p className="mt-4 max-w-xs text-sm leading-7 text-[rgba(255,255,255,0.48)]">
-              Manage attendance logs, people records, and daily QR sessions for the {ORGANIZATION_SHORT_NAME} administration in one focused workspace.
+              Sign in as a platform administrator or current organization administrator to manage people, QR operations, and tenant onboarding from one workspace.
             </p>
           </div>
 
-          <p className="text-xs text-[rgba(255,255,255,0.2)]">© 2026 {ORGANIZATION_SHORT_NAME} Portal</p>
+          <p className="text-xs text-[rgba(255,255,255,0.2)]">© 2026 {APP_NAME}</p>
         </section>
 
         <section className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
             <div className="mb-10 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--surface)] p-1 shadow-[0_10px_24px_rgba(22,24,29,0.08)]">
-                <Image src="/scppa-logo.png" alt={`${ORGANIZATION_SHORT_NAME} logo`} width={30} height={30} className="h-8 w-8 object-contain" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-sm font-bold tracking-[0.18em] text-[var(--foreground)] shadow-[0_10px_24px_rgba(22,24,29,0.08)]">
+                AL
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--foreground)]">{ORGANIZATION_SHORT_NAME} Portal</p>
-                <p className="text-xs text-[var(--muted)]">{ORGANIZATION_NAME}</p>
+                <p className="text-sm font-semibold text-[var(--foreground)]">{ADMIN_PORTAL_NAME}</p>
+                <p className="text-xs text-[var(--muted)]">{APP_NAME}</p>
               </div>
             </div>
 
             <div className="mb-8">
               <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">Sign in</h2>
               <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                Enter your administrator credentials to continue to the {ADMIN_PORTAL_NAME}.
+                Enter your administrator credentials to continue to the {ADMIN_PORTAL_NAME}. Need a new workspace? Use the
+                application link below.
               </p>
             </div>
 
             <LoginForm />
+            <p className="mt-4 text-center text-sm text-[var(--muted)]">
+              Need a new organization workspace?{" "}
+              <a href="/apply" className="font-semibold text-[var(--accent)]">
+                Submit an application
+              </a>
+            </p>
           </div>
         </section>
       </div>
