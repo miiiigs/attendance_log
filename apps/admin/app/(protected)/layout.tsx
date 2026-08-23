@@ -1,5 +1,4 @@
-import { AdminShell } from "../../components/admin-shell";
-import { requireAdmin } from "../../lib/auth";
+import { requireAdminOrOrgAdmin } from "../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +7,7 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile } = await requireAdmin();
+  await requireAdminOrOrgAdmin();
 
-  return <AdminShell profile={profile}>{children}</AdminShell>;
+  return <>{children}</>;
 }

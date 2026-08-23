@@ -2,55 +2,96 @@
 
 ## Authentication
 
-Supabase Auth is the only authentication system. Public signup is disabled in local Supabase config. The mobile app uses a trusted username login bridge, while admin authentication continues through Supabase email/password.
+Supabase Auth is the only authentication system. Public signup is disabled locally.
+
+### Organization login (mobile)
+
+Mobile login uses `POST /api/auth/mobile-login` with `organizationCode + username + password`:
+
+1. resolve the organization by normalized code
+2. resolve the membership by `(organization_id, username)` with `status = 'active'`
+3. resolve the global profile from the membership's user
+4. resolve the actual Supabase Auth identity via `auth.admin.getUserById` (never guessed from the organization username)
+5. perform a Supabase password grant
+
+Unknown organization/username/password combinations return a single generic error
+(`Invalid organization code, username, or password.`) and never reveal whether an
+account exists. Distinct operational messages are used only for inactive memberships
+and suspended organizations.
+
+### Admin login
+
+Platform and organization admins sign in with username/password through the admin app,
+which resolves the username to the derived auth email (`{username}@attendance.local`).
 
 ## Authorization
 
 Authorization is enforced at multiple layers:
 
-- role and status stored in `profiles`
-- RLS policies on all core tables
-- admin route checks in the web app
-- security-definer database functions for privileged mutations
+- global and per-membership roles stored in the database
+- RLS policies on all tenant tables
+- security-definer authorization helpers (`is_platform_admin`, `is_organization_admin`, `is_organization_member`, `get_own_membership_id`)
+- organization-route guards (`requireOrgAdmin`) that resolve the organization from the route slug and verify an active organization-admin membership
+- security-definer RPCs for every privileged mutation
+- validated server-side user lookups (`supabase.auth.getUser()`) for platform/org
+  admin trust decisions; cookie-backed `getSession()` is not used as authority for
+  sensitive route guards
 
-## Attendance Write Protection
+Platform admins may enter organization consoles; organization admins never gain platform scope.
 
-Attendance rows are not intended to be inserted directly from either client. The trusted write path is `scan_attendance(qr_token)`, which validates the QR token, user status, and attendance state before writing.
+## Tenant Isolation
+
+- Organization A can never read or modify Organization B data.
+- RLS fails closed; composite foreign keys prevent cross-organization activity/membership/QR relationships structurally.
+- No client-supplied organization id, activity id, or membership id is trusted as authority — the QR session, the authenticated user, and server-side membership validation determine tenant.
+- Member activity history is limited to logs the member personally participated in.
+
+## Activity Write Protection
+
+Activity logs and scans are never written directly from clients. The trusted path is
+`scan_activity(qr_token)`, which validates the QR, organization, activity, membership,
+and scan state before writing.
 
 ## QR Strategy
 
-- only hashed tokens are stored
-- tokens are short-lived
-- old active sessions are expired before validation
-- admins can revoke a session manually
+- only hashed tokens are stored in the database
+- sessions are short-lived (5-hour default for Activity QRs) and can be revoked
+- the raw token is returned once at creation and kept in an httpOnly admin cookie for
+  display/fullscreen/download; the cookie is cleared on revocation or Activity end
+- expired/revoked QR codes fail server-side even if a downloaded copy is rescanned
 
 ## Concurrency
 
-`scan_attendance` uses:
-
-- `unique(user_id, attendance_date)`
-- advisory transaction locks keyed by user and Manila date
-- row locking on profile, QR session, and attendance record lookups
-
-This prevents duplicate time-ins from near-simultaneous submissions.
+`scan_activity` uses advisory transaction locks keyed on `(activity_id, membership_id)`
+plus row locks, preventing duplicate Time In/Time Out under near-simultaneous scans.
 
 ## Service Role Handling
 
-The service-role key is only used in server-only admin mutations and the bootstrap script. It must never be exposed to the browser bundle or the Expo app.
+`SUPABASE_SERVICE_ROLE_KEY` is only used in server-only admin code (login bridge, people
+onboarding, platform approval) and scripts. It must never appear in browser bundles or
+the Expo app. In the local Supabase CLI stack, `service_role` lacks table grants by
+default; the E2E setup grants them locally (this does not affect hosted projects, where
+`service_role` is privileged by default).
 
 ## Onboarding Email Webhook
 
-Onboarding email delivery uses a server-only n8n webhook configuration:
+Automated onboarding email is optional and server-only:
 
-- `N8N_ONBOARDING_WEBHOOK_URL`
-- `N8N_ONBOARDING_WEBHOOK_SECRET`
+- `N8N_ONBOARDING_WEBHOOK_URL` + `N8N_ONBOARDING_WEBHOOK_SECRET` (shared via the `X-Attendance-Webhook-Secret` header)
+- empty = manual email fallback returned to the administrator
+- plaintext temporary passwords remain in short-lived in-memory responses only
 
-The shared secret is attached through the `X-Attendance-Webhook-Secret` header and must never be exposed to browser code, Expo bundles, logs, or admin API responses.
+## Platform Application Controls
 
-The application does not hold Gmail credentials. Gmail OAuth stays inside n8n, and n8n does not need Supabase service-role access for this onboarding flow.
+- `/apply` only inserts review requests; anonymous users cannot list, approve, reject,
+  or inspect organization applications
+- duplicate pending applications for the same normalized organization name + contact
+  email are rejected at the database layer
+- platform approval runs on trusted server code, creates the organization and admin
+  membership first-class, reuses existing global users when safe, and treats onboarding
+  email delivery as best-effort only
 
-n8n is optional. If it is not configured, not reachable, or offline, Person creation and credential resets still succeed and return a manual email fallback to the administrator. Plaintext passwords and fallback email bodies must remain in short-lived in-memory response state only.
+## Known Limitation
 
-## Known MVP Limitation
-
-Rotating QR codes reduce screenshot reuse, but they do not prove that the person holding the phone is the real account owner. That stronger identity proof is explicitly out of scope for this MVP.
+Rotating QR codes reduce screenshot reuse but do not prove the person holding the phone
+is the real account owner. Stronger identity proof is out of scope.
