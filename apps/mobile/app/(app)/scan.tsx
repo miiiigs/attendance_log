@@ -3,20 +3,25 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { formatAttendanceDate, formatAttendanceTime } from "@attendance/shared";
+import { formatDateInTimeZone, formatTimeInTimeZone } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileSecondaryButton, mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
+import { getOrgTimezone } from "../../lib/config";
+import { useAuth } from "../../providers/auth-provider";
 
 interface ScanResult {
-  attendance_record_id: string;
-  attendance_date: string;
+  activity_log_id: string;
+  activity_id: string;
+  activity_name: string;
   scan_type: "time_in" | "time_out";
   scanned_at: string;
   time_in: string | null;
   time_out: string | null;
   message: string;
 }
+
+const CONNECTION_ERROR = "Unable to reach the server. Check your connection and try again.";
 
 function getErrorMessage(reason: unknown) {
   if (reason instanceof Error && reason.message) {
@@ -30,10 +35,13 @@ function getErrorMessage(reason: unknown) {
     typeof reason.message === "string" &&
     reason.message
   ) {
+    if (reason.message === "Activity already completed.") {
+      return "Activity already completed. Your activity log for this activity already has both Time In and Time Out.";
+    }
     return reason.message;
   }
 
-  return "Your attendance was not recorded.";
+  return "Your activity was not recorded.";
 }
 
 function extractQrToken(data: string) {
@@ -55,10 +63,13 @@ function extractQrToken(data: string) {
 
 export default function ScanScreen() {
   const router = useRouter();
+  const { organization } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannerLocked, setScannerLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
+
+  const timezone = getOrgTimezone(organization?.timezone);
 
   function handleClose() {
     if (router.canGoBack()) {
@@ -79,7 +90,7 @@ export default function ScanScreen() {
 
     try {
       const qrToken = extractQrToken(payload.data);
-      const { data, error: rpcError } = await supabase.rpc("scan_attendance", {
+      const { data, error: rpcError } = await supabase.rpc("scan_activity", {
         qr_token: qrToken,
       });
 
@@ -89,12 +100,17 @@ export default function ScanScreen() {
 
       const scan = (Array.isArray(data) ? data[0] : data) as ScanResult | null;
       if (!scan) {
-        throw new Error("Your attendance was not recorded.");
+        throw new Error("Your activity was not recorded.");
       }
 
       setResult(scan);
     } catch (reason) {
-      setError(getErrorMessage(reason));
+      const message = getErrorMessage(reason);
+      if (message === CONNECTION_ERROR) {
+        setError(message);
+      } else {
+        setError(message);
+      }
       setScannerLocked(false);
     }
   }
@@ -117,7 +133,7 @@ export default function ScanScreen() {
         <StatusBar style="dark" />
         <View style={styles.lightCenter}>
           <Text style={styles.lightTitle}>Camera access required</Text>
-          <Text style={styles.lightText}>Allow camera access to scan the attendance QR code.</Text>
+          <Text style={styles.lightText}>Allow camera access to scan the activity QR code.</Text>
           <Pressable style={styles.allowButton} onPress={() => requestPermission().catch(() => undefined)}>
             <Text style={styles.allowButtonText}>Allow camera</Text>
           </Pressable>
@@ -127,6 +143,10 @@ export default function ScanScreen() {
   }
 
   if (result) {
+    const isTimeIn = result.scan_type === "time_in";
+    const scanTime = result.scanned_at;
+    const scanDate = new Date(result.scanned_at);
+
     return (
       <SafeAreaView style={styles.lightSafeArea} edges={["top", "bottom"]}>
         <StatusBar style="dark" />
@@ -134,13 +154,15 @@ export default function ScanScreen() {
           <View style={styles.successBadge}>
             <Text style={styles.successBadgeText}>✓</Text>
           </View>
-          <Text style={styles.successEyebrow}>Attendance recorded</Text>
-          <Text style={styles.successTitle}>{result.scan_type === "time_in" ? "Time In Logged" : "Time Out Logged"}</Text>
-          <Text style={styles.successSubtitle}>Your attendance has been successfully recorded for the current attendance day.</Text>
+          <Text style={styles.successEyebrow}>Activity Logged</Text>
+          <Text style={styles.successTitle}>{result.activity_name}</Text>
+          <Text style={styles.successSubtitle}>
+            {isTimeIn ? "TIME IN" : "TIME OUT"} recorded successfully.
+          </Text>
 
           <View style={styles.successCard}>
-            <Text style={styles.successTime}>{formatAttendanceTime(result.scanned_at)}</Text>
-            <Text style={styles.successDate}>{formatAttendanceDate(result.attendance_date)}</Text>
+            <Text style={styles.successTime}>{formatTimeInTimeZone(scanTime, timezone)}</Text>
+            <Text style={styles.successDate}>{formatDateInTimeZone(scanDate, timezone)}</Text>
           </View>
 
           <Pressable
@@ -160,9 +182,9 @@ export default function ScanScreen() {
       <View style={styles.darkContainer}>
         <View style={styles.scanHeader}>
           <View>
-            <Text style={styles.scanEyebrow}>Attendance Scanner</Text>
-            <Text style={styles.scanTitle}>Scan Attendance</Text>
-            <Text style={styles.scanSubtitle}>{scannerLocked ? "Processing attendance..." : "Align the QR code within the frame."}</Text>
+            <Text style={styles.scanEyebrow}>Activity Scanner</Text>
+            <Text style={styles.scanTitle}>Scan Activity</Text>
+            <Text style={styles.scanSubtitle}>{scannerLocked ? "Processing activity..." : "Align the QR code within the frame."}</Text>
           </View>
           <Pressable style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>×</Text>
@@ -170,7 +192,7 @@ export default function ScanScreen() {
         </View>
 
         <View style={styles.scanStatusBar}>
-          <Text style={styles.scanStatusText}>{scannerLocked ? "Recording attendance..." : "Camera ready"}</Text>
+          <Text style={styles.scanStatusText}>{scannerLocked ? "Recording activity..." : "Camera ready"}</Text>
         </View>
 
         <View style={styles.cameraWrap}>
@@ -189,7 +211,7 @@ export default function ScanScreen() {
           </View>
           {scannerLocked ? (
             <View style={styles.processingOverlay}>
-              <Text style={styles.processingText}>Processing attendance…</Text>
+              <Text style={styles.processingText}>Processing activity…</Text>
             </View>
           ) : null}
         </View>
@@ -202,7 +224,7 @@ export default function ScanScreen() {
         ) : null}
 
         <View style={styles.scanFooter}>
-          <Text style={styles.scanFooterText}>Use the active attendance QR issued by the administrator.</Text>
+          <Text style={styles.scanFooterText}>Use the active activity QR issued by the administrator.</Text>
         </View>
 
         {error ? <MobileSecondaryButton label="Close" onPress={handleClose} /> : null}

@@ -1,52 +1,151 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import * as SecureStore from "expo-secure-store";
 import { supabase } from "../lib/supabase/client";
 
-interface Profile {
+const ORG_CONTEXT_KEY = "activity_log_org_context";
+
+export interface OrganizationContext {
   id: string;
+  code: string;
+  slug: string;
+  name: string;
+  timezone: string;
+}
+
+export interface MembershipContext {
+  id: string;
+  userId: string;
   username: string;
-  first_name: string;
-  last_name: string;
+  role: string;
+  status: string;
+}
+
+export interface ProfileContext {
+  id: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  role: "person" | "admin";
-  status: "active" | "inactive";
+  status: string;
+}
+
+export interface LoginContextPayload {
+  organization: OrganizationContext;
+  membership: MembershipContext;
+  profile: ProfileContext;
 }
 
 interface AuthContextValue {
   session: Session | null;
-  profile: Profile | null;
+  profile: ProfileContext | null;
+  organization: OrganizationContext | null;
+  membership: MembershipContext | null;
   loading: boolean;
-  refreshProfile: (sessionOverride?: Session | null) => Promise<void>;
+  applyLoginContext: (payload: LoginContextPayload) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function serializeLoginContext(payload: LoginContextPayload) {
+  return JSON.stringify(payload);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<ProfileContext | null>(null);
+  const [organization, setOrganization] = useState<OrganizationContext | null>(null);
+  const [membership, setMembership] = useState<MembershipContext | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function refreshProfile(sessionOverride?: Session | null) {
-    const activeSession = sessionOverride ?? session;
-    if (!activeSession) {
-      setProfile(null);
-      return;
+  async function applyLoginContext(payload: LoginContextPayload) {
+    setProfile(payload.profile);
+    setOrganization(payload.organization);
+    setMembership(payload.membership);
+    await SecureStore.setItemAsync(ORG_CONTEXT_KEY, serializeLoginContext(payload)).catch(() => undefined);
+  }
+
+  async function clearSessionContext() {
+    setProfile(null);
+    setOrganization(null);
+    setMembership(null);
+    await SecureStore.deleteItemAsync(ORG_CONTEXT_KEY).catch(() => undefined);
+  }
+
+  async function revalidateContext(activeSession: Session) {
+    const storedRaw = await SecureStore.getItemAsync(ORG_CONTEXT_KEY).catch(() => null);
+    let stored: LoginContextPayload | null = null;
+
+    if (storedRaw) {
+      try {
+        stored = JSON.parse(storedRaw) as LoginContextPayload;
+      } catch {
+        stored = null;
+      }
     }
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, first_name, last_name, email, role, status")
-      .eq("id", activeSession.user.id)
-      .maybeSingle();
+    const [{ data: profileData }, { data: membershipData }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, first_name, last_name, email, status")
+        .eq("id", activeSession.user.id)
+        .maybeSingle(),
+      stored?.membership?.id
+        ? supabase
+            .from("organization_memberships")
+            .select("id, user_id, username, role, status, organization_id")
+            .eq("id", stored.membership.id)
+            .eq("user_id", activeSession.user.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-    setProfile(data ?? null);
+    setProfile(
+      profileData
+        ? {
+            id: profileData.id,
+            firstName: profileData.first_name,
+            lastName: profileData.last_name,
+            email: profileData.email,
+            status: profileData.status,
+          }
+        : null,
+    );
+
+    if (membershipData) {
+      const { data: organizationData } = await supabase
+        .from("organizations")
+        .select("id, name, code, slug, timezone, status")
+        .eq("id", membershipData.organization_id)
+        .maybeSingle();
+
+      if (organizationData && organizationData.status === "active") {
+        setOrganization({
+          id: organizationData.id,
+          code: organizationData.code,
+          slug: organizationData.slug,
+          name: organizationData.name,
+          timezone: organizationData.timezone,
+        });
+        setMembership({
+          id: membershipData.id,
+          userId: membershipData.user_id,
+          username: membershipData.username,
+          role: membershipData.role,
+          status: membershipData.status,
+        });
+        return;
+      }
+    }
+
+    await SecureStore.deleteItemAsync(ORG_CONTEXT_KEY).catch(() => undefined);
+    setOrganization(null);
+    setMembership(null);
   }
 
   async function signOut() {
     await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
+    await clearSessionContext();
   }
 
   useEffect(() => {
@@ -63,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setSession(currentSession);
       if (currentSession) {
-        await refreshProfile(currentSession);
+        await revalidateContext(currentSession);
       }
       setLoading(false);
     }
@@ -74,9 +173,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
-      refreshProfile(nextSession).catch(() => undefined);
+      if (nextSession) {
+        await revalidateContext(nextSession).catch(() => undefined);
+      } else {
+        await clearSessionContext();
+      }
     });
 
     return () => {
@@ -89,11 +192,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       session,
       profile,
+      organization,
+      membership,
       loading,
-      refreshProfile,
+      applyLoginContext,
       signOut,
     }),
-    [loading, profile, session],
+    [loading, membership, organization, profile, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

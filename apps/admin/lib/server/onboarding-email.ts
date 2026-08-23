@@ -14,8 +14,10 @@ export interface BuildOnboardingEmailInput {
   lastName?: string | null;
   email: string;
   username: string;
-  temporaryPassword: string;
+  temporaryPassword?: string | null;
   organizationName?: string | null;
+  organizationCode?: string | null;
+  useExistingPassword?: boolean;
 }
 
 export interface OnboardingEmailContent {
@@ -51,44 +53,72 @@ function getN8nConfig() {
 }
 
 export function buildOnboardingEmail(input: BuildOnboardingEmailInput): OnboardingEmailContent {
-  const subject = "Your SCPAA Attendance Account";
+  const subject = "Your Activity Log credentials";
 
   const lines = [
     `Hello ${input.firstName},`,
     "",
-    "Your attendance account has been created.",
-    "",
-    "Username:",
-    input.username,
-    "",
-    "Temporary Password:",
-    input.temporaryPassword,
-    "",
-    "Use these credentials to sign in to the Attendance mobile application.",
-    "",
-    "Please keep your username and password private and do not share them with anyone.",
-    "",
-    "If you have trouble accessing your account, please contact your administrator.",
+    "Your Activity Log access is ready.",
   ];
 
   if (input.organizationName?.trim()) {
-    lines.push("", input.organizationName.trim());
+    lines.push("", "Organization:", input.organizationName.trim());
   }
+
+  if (input.organizationCode?.trim()) {
+    lines.push("", "Organization Code:", input.organizationCode.trim().toUpperCase());
+  }
+
+  lines.push("", "Username:", input.username);
+
+  if (input.temporaryPassword) {
+    lines.push("", "Temporary Password:", input.temporaryPassword);
+  }
+
+  lines.push("");
+
+  if (input.temporaryPassword) {
+    lines.push("Use these credentials to sign in to the Activity Log application.");
+  } else if (input.useExistingPassword) {
+    lines.push("Use your existing Activity Log password to sign in to this organization.");
+  } else {
+    lines.push("Use your Activity Log credentials to sign in to this organization.");
+  }
+
+  lines.push(
+    "",
+    "Please keep your login details private and do not share them with anyone.",
+    "",
+    "If you have trouble accessing your account, please contact your administrator.",
+  );
 
   const textBody = lines.join("\n");
   const fullEmailText = `To: ${input.email}\nSubject: ${subject}\n\n${textBody}`;
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; color: #172220; line-height: 1.6;">
       <p>Hello ${escapeHtml(input.firstName)},</p>
-      <p>Your attendance account has been created.</p>
+      <p>Your Activity Log access is ready.</p>
       <div style="border: 1px solid #d7d2c6; border-radius: 16px; padding: 16px; background: #f8f4ec;">
+        ${input.organizationName?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization</strong><br />${escapeHtml(input.organizationName.trim())}</p>` : ""}
+        ${input.organizationCode?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization Code</strong><br />${escapeHtml(input.organizationCode.trim().toUpperCase())}</p>` : ""}
         <p style="margin: 0 0 12px;"><strong>Username</strong><br />${escapeHtml(input.username)}</p>
-        <p style="margin: 0;"><strong>Temporary Password</strong><br />${escapeHtml(input.temporaryPassword)}</p>
+        ${
+          input.temporaryPassword
+            ? `<p style="margin: 0;"><strong>Temporary Password</strong><br />${escapeHtml(input.temporaryPassword)}</p>`
+            : input.useExistingPassword
+              ? `<p style="margin: 0;">Use your existing Activity Log password to sign in to this organization.</p>`
+              : ""
+        }
       </div>
-      <p>Use these credentials to sign in to the Attendance mobile application.</p>
-      <p>Please keep your username and password private and do not share them with anyone.</p>
+      <p>${
+        input.temporaryPassword
+          ? "Use these credentials to sign in to the Activity Log application."
+          : input.useExistingPassword
+            ? "Use your existing Activity Log password to sign in to this organization."
+            : "Use your Activity Log credentials to sign in to this organization."
+      }</p>
+      <p>Please keep your login details private and do not share them with anyone.</p>
       <p>If you have trouble accessing your account, please contact your administrator.</p>
-      ${input.organizationName?.trim() ? `<p>${escapeHtml(input.organizationName.trim())}</p>` : ""}
     </div>
   `.trim();
 
@@ -115,8 +145,10 @@ function buildWebhookPayload(input: AttemptAutomatedOnboardingEmailInput) {
     fullName,
     email: input.email,
     username: input.username,
-    temporaryPassword: input.temporaryPassword,
+    temporaryPassword: input.temporaryPassword ?? undefined,
     organizationName: input.organizationName ?? undefined,
+    organizationCode: input.organizationCode ?? undefined,
+    useExistingPassword: input.useExistingPassword ?? false,
   };
 }
 

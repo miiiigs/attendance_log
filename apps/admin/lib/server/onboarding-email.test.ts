@@ -26,10 +26,13 @@ describe("onboarding-email", () => {
       username: "202600001",
       temporaryPassword: "G7kP2mQ9xL4A",
       organizationName: "ABC Company",
+      organizationCode: "ABCCO",
     });
 
-    expect(email.subject).toBe("Your SCPAA Attendance Account");
+    expect(email.subject).toBe("Your Activity Log credentials");
     expect(email.textBody).toContain("Hello Juan,");
+    expect(email.textBody).toContain("Organization Code:");
+    expect(email.textBody).toContain("ABCCO");
     expect(email.textBody).toContain("202600001");
     expect(email.textBody).toContain("G7kP2mQ9xL4A");
     expect(email.textBody.toLowerCase()).not.toContain("employee");
@@ -46,6 +49,7 @@ describe("onboarding-email", () => {
       username: "202600001",
       temporaryPassword: "G7kP2mQ9xL4A",
       organizationName: "Example Company",
+      organizationCode: "EXAMPLE",
     });
     const result = await attemptAutomatedOnboardingEmail({
       firstName: "Juan",
@@ -54,6 +58,7 @@ describe("onboarding-email", () => {
       username: "202600001",
       temporaryPassword: "G7kP2mQ9xL4A",
       organizationName: "Example Company",
+      organizationCode: "EXAMPLE",
       ...email,
     });
 
@@ -74,7 +79,7 @@ describe("onboarding-email", () => {
     expect(JSON.parse(String(request?.body))).toMatchObject({
       event: "person.created",
       to: "juan@example.com",
-      subject: "Your SCPAA Attendance Account",
+      subject: "Your Activity Log credentials",
       textBody: expect.stringContaining("Hello Juan,"),
       firstName: "Juan",
       lastName: "Dela Cruz",
@@ -83,6 +88,7 @@ describe("onboarding-email", () => {
       username: "202600001",
       temporaryPassword: "G7kP2mQ9xL4A",
       organizationName: "Example Company",
+      organizationCode: "EXAMPLE",
     });
   });
 

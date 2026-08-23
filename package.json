@@ -11,13 +11,20 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "bootstrap:platform-admin": "tsx scripts/bootstrap-admin.ts",
     "sync:auth-usernames": "tsx scripts/sync-auth-usernames.ts",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
+    "e2e:seed": "tsx scripts/e2e-seed.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@supabase/supabase-js": "^2.56.0",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0",
     "supabase": "^2.39.2",
     "tsx": "^4.20.3"
   }

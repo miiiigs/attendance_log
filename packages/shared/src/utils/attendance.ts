@@ -27,6 +27,33 @@ export function formatAttendanceTime(value: string | Date | null) {
   return timeFormatter.format(new Date(value));
 }
 
+export function formatDateInTimeZone(value: string | Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "full",
+    timeZone,
+  }).format(new Date(value));
+}
+
+export function formatTimeInTimeZone(value: string | Date | null, timeZone: string) {
+  if (!value) {
+    return "--";
+  }
+
+  return new Intl.DateTimeFormat("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(value));
+}
+
+export function formatDateTimeInTimeZone(value: string | Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(new Date(value));
+}
+
 export function getFullName(firstName: string, lastName: string) {
   return `${firstName} ${lastName}`.trim();
 }
