@@ -1,3 +1,7 @@
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+
 /**
  * Local E2E environment. Values default to the well-known Supabase local
  * stack (127.0.0.1) and can be overridden via E2E_* env vars.
@@ -6,17 +10,80 @@
  * Supabase, production Auth users, n8n, or real email.
  */
 
-const LOCAL_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+type LocalSupabaseStatus = {
+  apiUrl: string | null;
+  anonKey: string | null;
+  serviceRoleKey: string | null;
+};
 
-const LOCAL_SERVICE_ROLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+function parseEnvOutput(raw: string) {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((accumulator, line) => {
+      const separatorIndex = line.indexOf("=");
+      if (separatorIndex <= 0) {
+        return accumulator;
+      }
+
+      const key = line.slice(0, separatorIndex);
+      const value = line.slice(separatorIndex + 1);
+      accumulator[key] = value;
+      return accumulator;
+    }, {});
+}
+
+function readLocalSupabaseStatus(): LocalSupabaseStatus | null {
+  const localHome = resolve(process.cwd(), ".tmp-supabase-home");
+  mkdirSync(localHome, { recursive: true });
+
+  const result = spawnSync("pnpm", ["exec", "supabase", "status", "-o", "env"], {
+    cwd: process.cwd(),
+    shell: true,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: localHome,
+      USERPROFILE: localHome,
+    },
+  });
+
+  if (result.status !== 0 || !result.stdout) {
+    return null;
+  }
+
+  const parsed = parseEnvOutput(result.stdout);
+  return {
+    apiUrl: parsed.API_URL ?? null,
+    anonKey: parsed.ANON_KEY ?? null,
+    serviceRoleKey: parsed.SERVICE_ROLE_KEY ?? null,
+  };
+}
+
+function requireLocalSecret(name: string, value: string | null | undefined) {
+  if (value?.trim()) {
+    return value;
+  }
+
+  throw new Error(
+    `Missing ${name} for local E2E. Start the local Supabase stack or set ${name} explicitly via the E2E_* environment.`,
+  );
+}
+
+const localSupabaseStatus = readLocalSupabaseStatus();
 
 export const e2eEnv = {
   baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000",
-  supabaseUrl: process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321",
-  supabaseAnonKey: process.env.E2E_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY,
-  supabaseServiceRoleKey: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? LOCAL_SERVICE_ROLE_KEY,
+  supabaseUrl: process.env.E2E_SUPABASE_URL ?? localSupabaseStatus?.apiUrl ?? "http://127.0.0.1:54321",
+  supabaseAnonKey: requireLocalSecret(
+    "E2E_SUPABASE_ANON_KEY",
+    process.env.E2E_SUPABASE_ANON_KEY ?? localSupabaseStatus?.anonKey,
+  ),
+  supabaseServiceRoleKey: requireLocalSecret(
+    "E2E_SUPABASE_SERVICE_ROLE_KEY",
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY ?? localSupabaseStatus?.serviceRoleKey,
+  ),
   supabaseDbUrl: process.env.E2E_SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
 };
 
