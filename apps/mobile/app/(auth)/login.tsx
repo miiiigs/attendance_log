@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "expo-router";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -215,6 +216,10 @@ export default function LoginScreen() {
                 <Text style={styles.buttonText}>Sign In</Text>
               )}
             </Pressable>
+
+            <Link href="./forgot-password" style={styles.forgotPasswordLink}>
+              Forgot password?
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -366,5 +371,12 @@ const styles = StyleSheet.create({
     color: mobileTheme.white,
     fontSize: 15,
     fontWeight: "700",
+  },
+  forgotPasswordLink: {
+    alignSelf: "center",
+    fontSize: 13,
+    fontWeight: "700",
+    color: mobileTheme.accent,
+    marginTop: 2,
   },
 });

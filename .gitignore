@@ -17,3 +17,5 @@ supabase/.branches
 .tmp-supabase-home/
 test-results
 playwright-report
+.vercel
+.env*

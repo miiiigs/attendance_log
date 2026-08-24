@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { requireOrgAdminApiContext } from "../../../../../lib/org-auth";
 import { generateTemporaryPassword } from "../../../../../lib/passwords";
 import {
-  attemptAutomatedOnboardingEmail,
-  buildOnboardingEmail,
+  sendExistingMembershipEmail,
+  sendOnboardingEmail,
 } from "../../../../../lib/server/onboarding-email";
 import { createSupabaseServiceClient } from "../../../../../lib/supabase/service";
 
@@ -106,28 +106,26 @@ export async function POST(
     return NextResponse.json({ error: membershipError.message ?? "Unable to create membership." }, { status: 400 });
   }
 
-  const onboardingEmail = buildOnboardingEmail({
-    organizationName: organization.name,
-    organizationCode: organization.code,
-    firstName: parsed.data.firstName,
-    lastName: parsed.data.lastName,
-    email: parsed.data.email,
-    username,
-    temporaryPassword,
-    useExistingPassword: !temporaryPassword,
-  });
+  const emailResult = temporaryPassword
+    ? await sendOnboardingEmail({
+        organizationName: organization.name,
+        organizationCode: organization.code,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email: parsed.data.email,
+        username,
+        temporaryPassword,
+      })
+    : await sendExistingMembershipEmail({
+        organizationName: organization.name,
+        organizationCode: organization.code,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email: parsed.data.email,
+        username,
+      });
 
-  const delivery = await attemptAutomatedOnboardingEmail({
-    organizationName: organization.name,
-    organizationCode: organization.code,
-    firstName: parsed.data.firstName,
-    lastName: parsed.data.lastName,
-    email: parsed.data.email,
-    username,
-    temporaryPassword,
-    useExistingPassword: !temporaryPassword,
-    ...onboardingEmail,
-  });
+  const manualTemporaryPassword = temporaryPassword && emailResult.delivery.status !== "sent" ? temporaryPassword : null;
 
   return NextResponse.json({
     success: true,
@@ -138,14 +136,15 @@ export async function POST(
       email: parsed.data.email,
       username,
     },
-    temporaryPassword,
+    usedExistingAccount: !temporaryPassword,
+    temporaryPassword: manualTemporaryPassword,
     onboarding: {
-      deliveryStatus: delivery.status,
-      recipient: onboardingEmail.recipient,
-      subject: onboardingEmail.subject,
-      body: onboardingEmail.textBody,
-      fullEmail: onboardingEmail.fullEmailText,
-      reason: delivery.status === "sent" ? null : delivery.reason,
+      deliveryStatus: emailResult.delivery.status,
+      recipient: emailResult.content.recipient,
+      subject: emailResult.content.subject,
+      body: emailResult.content.textBody,
+      fullEmail: emailResult.content.fullEmailText,
+      reason: emailResult.delivery.status === "sent" ? null : emailResult.delivery.reason,
     },
   });
 }

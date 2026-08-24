@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/browser";
@@ -69,9 +70,14 @@ export function LoginForm() {
       </div>
 
       <div>
-        <label className="admin-field-label" htmlFor="password">
-          Password
-        </label>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <label className="admin-field-label" htmlFor="password">
+            Password
+          </label>
+          <Link href="/forgot-password" className="text-xs font-semibold text-[var(--accent)] transition hover:text-[var(--foreground)]">
+            Forgot password?
+          </Link>
+        </div>
         <div className="relative">
           <input
             id="password"

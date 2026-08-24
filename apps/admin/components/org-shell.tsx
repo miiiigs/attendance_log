@@ -10,6 +10,7 @@ import {
   Menu,
   Settings,
   ShieldCheck,
+  UserCircle2,
   Users,
   X,
   Zap,
@@ -101,6 +102,14 @@ function OrgShellNav({
             <LogOut className="h-3.5 w-3.5" />
             Session
           </div>
+          <Link
+            href="/account"
+            onClick={onClose}
+            className="mb-2 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-[rgba(255,255,255,0.74)] transition hover:bg-white/5 hover:text-white"
+          >
+            <UserCircle2 className="h-4 w-4" />
+            Account
+          </Link>
           <LogoutButton />
         </div>
       </div>
@@ -196,6 +205,13 @@ export function OrgShell({
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Platform
+                </Link>
+                <Link
+                  href="/account"
+                  className="hidden items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--foreground)] md:flex"
+                >
+                  <UserCircle2 className="h-3.5 w-3.5" />
+                  Account
                 </Link>
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-white">
