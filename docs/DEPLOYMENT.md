@@ -48,7 +48,7 @@ Resend is the transactional email provider for:
 Password recovery continues to use Supabase Auth semantics. Production should route
 Supabase Auth email through Resend SMTP (or another approved SMTP relay) and allow:
 
-- `https://scppa-portal.vercel.app/reset-password`
+- `https://attendancelogger.vercel.app/reset-password`
 - local development reset URLs as needed
 - Vercel preview redirect URLs if previews need recovery testing
 

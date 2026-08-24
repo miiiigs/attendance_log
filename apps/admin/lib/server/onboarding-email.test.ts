@@ -22,7 +22,7 @@ describe("onboarding-email", () => {
     process.env.RESEND_API_KEY = "re_test_key";
     process.env.RESEND_FROM_EMAIL = "accounts@example.com";
     process.env.RESEND_FROM_NAME = "Activity Log";
-    process.env.APP_BASE_URL = "https://scppa-portal.vercel.app";
+    process.env.APP_BASE_URL = "https://attendancelogger.vercel.app";
   });
 
   afterEach(() => {
@@ -39,7 +39,7 @@ describe("onboarding-email", () => {
       lastName: "Dela Cruz",
       email: "juan@example.com",
       username: "202600001",
-      temporaryPassword: "G7kP2mQ9xL4A6W8N",
+      temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
     });
@@ -48,8 +48,8 @@ describe("onboarding-email", () => {
     expect(email.textBody).toContain("Welcome Juan,");
     expect(email.textBody).toContain("ABCCO");
     expect(email.textBody).toContain("202600001");
-    expect(email.textBody).toContain("G7kP2mQ9xL4A6W8N");
-    expect(email.textBody).toContain("https://scppa-portal.vercel.app/login");
+    expect(email.textBody).toContain("TEMP_PASSWORD_FOR_TESTS");
+    expect(email.textBody).toContain("https://attendancelogger.vercel.app/login");
     expect(email.textBody).toContain("Please change your password after your first login.");
   });
 
@@ -77,7 +77,7 @@ describe("onboarding-email", () => {
       firstName: "Juan",
       email: "juan@example.com",
       username: "202600001",
-      temporaryPassword: "G7kP2mQ9xL4A6W8N",
+      temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
       organizationName: "Example Company",
       organizationCode: "EXAMPLE",
     });
@@ -101,7 +101,7 @@ describe("onboarding-email", () => {
       firstName: "Juan",
       email: "juan@example.com",
       username: "202600001",
-      temporaryPassword: "G7kP2mQ9xL4A6W8N",
+      temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
     });
 
     expect(result.delivery).toEqual({

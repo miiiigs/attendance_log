@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const requirePlatformAdminApiContext = vi.fn();
 const createSupabaseServerClient = vi.fn();
@@ -162,8 +162,13 @@ function createServiceSupabase(options?: {
 }
 
 describe("POST /api/platform/applications/[id]/approve", () => {
+  let postRoute: typeof import("./route").POST;
+
+  beforeAll(async () => {
+    ({ POST: postRoute } = await import("./route"));
+  });
+
   beforeEach(() => {
-    vi.resetModules();
     vi.clearAllMocks();
     requirePlatformAdminApiContext.mockResolvedValue({
       profile: { id: "platform-admin-1" },
@@ -191,8 +196,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
   });
 
   async function post(payload: Record<string, unknown>) {
-    const { POST } = await import("./route");
-    return POST(
+    return postRoute(
       new Request("http://localhost/api/platform/applications/application-1/approve", {
         method: "POST",
         body: JSON.stringify(payload),
