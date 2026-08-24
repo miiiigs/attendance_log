@@ -69,6 +69,59 @@ describe("onboarding-email", () => {
     expect(email.htmlBody).not.toContain("Temporary Password");
   });
 
+  it("builds a new administrator onboarding email with credentials", async () => {
+    const { buildAdminOnboardingEmail } = await import("./onboarding-email");
+    const email = buildAdminOnboardingEmail({
+      firstName: "Juan",
+      email: "juan@example.com",
+      username: "202600003",
+      temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
+      organizationName: "ABC Company",
+      organizationCode: "ABCCO",
+    });
+
+    expect(email.subject).toBe("Your QRLog administrator account is ready");
+    expect(email.textBody).toContain("administrator access is ready");
+    expect(email.textBody).toContain("ABCCO");
+    expect(email.textBody).toContain("202600003");
+    expect(email.textBody).toContain("TEMP_PASSWORD_FOR_TESTS");
+    expect(email.textBody).toContain("https://qrlogph.vercel.app/login");
+  });
+
+  it("builds an existing-user administrator email without a password", async () => {
+    const { buildExistingAdminEmail } = await import("./onboarding-email");
+    const email = buildExistingAdminEmail({
+      firstName: "Juan",
+      email: "juan@example.com",
+      username: "202600003",
+      organizationName: "ABC Company",
+      organizationCode: "ABCCO",
+    });
+
+    expect(email.subject).toBe("You've been added as an administrator to ABC Company");
+    expect(email.textBody).toContain("as an administrator to ABC Company");
+    expect(email.textBody).toContain("Use your existing QRLog password.");
+    expect(email.textBody).not.toContain("Temporary Password");
+    expect(email.htmlBody).not.toContain("Temporary Password");
+  });
+
+  it("builds an administrator promotion email without a password", async () => {
+    const { buildAdminPromotionEmail } = await import("./onboarding-email");
+    const email = buildAdminPromotionEmail({
+      firstName: "Juan",
+      email: "juan@example.com",
+      username: "202600001",
+      organizationName: "ABC Company",
+      organizationCode: "ABCCO",
+    });
+
+    expect(email.subject).toBe("You now have administrator access to ABC Company");
+    expect(email.textBody).toContain("administrator access to ABC Company");
+    expect(email.textBody).toContain("Use your existing QRLog password.");
+    expect(email.textBody).not.toContain("Temporary Password");
+    expect(email.htmlBody).not.toContain("Temporary Password");
+  });
+
   it("sends onboarding email through Resend when configured", async () => {
     sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
     const { sendOnboardingEmail } = await import("./onboarding-email");

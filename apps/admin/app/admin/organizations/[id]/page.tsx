@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDateTimeInTimeZone } from "@attendance/shared";
 import { notFound } from "next/navigation";
+import { AddOrganizationAdmin } from "../../../../components/organization-admin-manager";
 import { OrganizationStatusManager } from "../../../../components/organization-status-manager";
 import { getPlatformOrganizationById } from "../../../../lib/data/platform";
 
@@ -85,33 +86,42 @@ export default async function PlatformOrganizationDetailPage({
           <div className="border-b border-[#f0ede5] px-5 py-4">
             <h2 className="text-sm font-semibold text-[var(--foreground)]">Organization administrators</h2>
           </div>
-          <table className="admin-table min-w-[620px]">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Status</th>
-                <th>Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail.administrators.map((administrator) => (
-                <tr key={administrator.id} className="admin-table-row">
-                  <td>
-                    <div>
-                      <p className="font-medium text-[var(--foreground)]">{administrator.name}</p>
-                      <p className="text-xs text-[var(--muted)]">{administrator.email}</p>
-                    </div>
-                  </td>
-                  <td className="font-mono text-sm text-[var(--foreground)]">{administrator.username}</td>
-                  <td className="text-sm capitalize text-[var(--foreground)]">{administrator.status}</td>
-                  <td className="text-xs text-[var(--muted)]">
-                    {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(administrator.joinedAt))}
-                  </td>
+          {detail.administrators.length ? (
+            <table className="admin-table min-w-[620px]">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Username</th>
+                  <th>Status</th>
+                  <th>Joined</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {detail.administrators.map((administrator) => (
+                  <tr key={administrator.id} className="admin-table-row">
+                    <td>
+                      <div>
+                        <p className="font-medium text-[var(--foreground)]">{administrator.name}</p>
+                        <p className="text-xs text-[var(--muted)]">{administrator.email}</p>
+                      </div>
+                    </td>
+                    <td className="font-mono text-sm text-[var(--foreground)]">{administrator.username}</td>
+                    <td className="text-sm capitalize text-[var(--foreground)]">{administrator.status}</td>
+                    <td className="text-xs text-[var(--muted)]">
+                      {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(administrator.joinedAt))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="px-5 py-10 text-center text-sm text-[var(--muted)]">
+              No organization administrators have been assigned yet.
+            </div>
+          )}
+          <div className="border-t border-[#f0ede5] px-5 py-4">
+            <AddOrganizationAdmin organizationId={detail.organization.id} />
+          </div>
         </div>
 
         <div className="admin-table-shell overflow-x-auto">
