@@ -23,7 +23,7 @@ port = 54324
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["exp://127.0.0.1:8081", "attendance://"]
+additional_redirect_urls = ["exp://127.0.0.1:8081", "qrlog://"]
 jwt_expiry = 3600
 enable_signup = false
 

@@ -84,7 +84,7 @@ export async function POST(
     .maybeSingle<ExistingProfile>();
 
   if (existingProfile && existingProfile.status !== "active") {
-    return NextResponse.json({ error: "The existing Activity Log account for this email is inactive." }, { status: 400 });
+    return NextResponse.json({ error: "The existing QRLog account for this email is inactive." }, { status: 400 });
   }
 
   if (existingProfile) {
@@ -92,7 +92,7 @@ export async function POST(
 
     if (existingAuthUserError || !existingAuthUser.user) {
       return NextResponse.json(
-        { error: "The existing Activity Log account for this email could not be reused safely." },
+        { error: "The existing QRLog account for this email could not be reused safely." },
         { status: 409 },
       );
     }

@@ -1,6 +1,6 @@
-# Activity Log
+# QRLog
 
-Activity Log is a multi-tenant activity-tracking platform: a Next.js admin dashboard, an Expo mobile app, and a Supabase backend with RLS and QR-backed activity scanning.
+QRLog is a multi-tenant activity-tracking platform: a Next.js admin dashboard, an Expo mobile app, and a Supabase backend with RLS and QR-backed activity scanning.
 
 - **Platform Admin** manages organizations and applications (`/admin`): review, approve, reject, suspend, reactivate.
 - **Organization Admin** runs each tenant's console (`/org/[slug]/*`): Activities, Current Activity, People, Settings.

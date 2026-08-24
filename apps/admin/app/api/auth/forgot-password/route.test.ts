@@ -28,14 +28,14 @@ describe("POST /api/auth/forgot-password", () => {
       url: "https://supabase.example",
       anonKey: "anon-key",
     });
-    getOptionalAppBaseUrl.mockReturnValue("https://attendancelogger.vercel.app");
+    getOptionalAppBaseUrl.mockReturnValue("https://qrlogph.vercel.app");
     resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
   });
 
   async function post(payload: Record<string, unknown>) {
     const { POST } = await import("./route");
     return POST(
-      new Request("https://attendancelogger.vercel.app/api/auth/forgot-password", {
+      new Request("https://qrlogph.vercel.app/api/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify(payload),
       }),
@@ -52,7 +52,7 @@ describe("POST /api/auth/forgot-password", () => {
       message: "If an account exists for that email, we've sent password reset instructions.",
     });
     expect(resetPasswordForEmail).toHaveBeenCalledWith("owner@example.com", {
-      redirectTo: "https://attendancelogger.vercel.app/reset-password",
+      redirectTo: "https://qrlogph.vercel.app/reset-password",
     });
   });
 

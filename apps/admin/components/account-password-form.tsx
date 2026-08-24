@@ -67,7 +67,7 @@ export function AccountPasswordForm() {
       </div>
 
       <p className="text-sm leading-7 text-[var(--muted)]">
-        Passwords must be at least 10 characters long. Changing your password updates your Activity Log sign-in everywhere this
+        Passwords must be at least 10 characters long. Changing your password updates your QRLog sign-in everywhere this
         account is used.
       </p>
 

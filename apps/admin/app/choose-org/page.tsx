@@ -32,10 +32,10 @@ export default async function ChooseOrgPage() {
       <div className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] text-sm font-bold tracking-[0.18em] text-white">
-            AL
+            QR
           </div>
           <div>
-            <p className="text-sm font-semibold text-[var(--foreground)]">Activity Log</p>
+            <p className="text-sm font-semibold text-[var(--foreground)]">QRLog</p>
             <p className="text-xs text-[var(--muted)]">Choose an organization console</p>
           </div>
         </div>

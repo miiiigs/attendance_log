@@ -123,7 +123,7 @@ export default function ProfileScreen() {
       <MobileSoftCard>
         <Text style={styles.noteTitle}>Session</Text>
         <Text style={styles.noteText}>
-          You are signed in to {organization?.name ?? "your organization"} on Activity Log. Use the scan screen to log your time in
+          You are signed in to {organization?.name ?? "your organization"} on QRLog. Use the scan screen to log your time in
           and time out whenever an activity is open.
         </Text>
       </MobileSoftCard>
@@ -133,8 +133,8 @@ export default function ProfileScreen() {
         <View style={styles.passwordStack}>
           <Text style={styles.passwordNote}>
             {membershipCount && membershipCount > 1
-              ? `This account is active in ${membershipCount} organizations. Changing the password here updates every Activity Log membership tied to this account.`
-              : "Changing your password here updates your Activity Log sign-in for this account."}
+              ? `This account is active in ${membershipCount} organizations. Changing the password here updates every QRLog membership tied to this account.`
+              : "Changing your password here updates your QRLog sign-in for this account."}
           </Text>
 
           <View style={styles.field}>

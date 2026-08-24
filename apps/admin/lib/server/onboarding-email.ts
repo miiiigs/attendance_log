@@ -70,12 +70,12 @@ function getLoginUrl() {
 
 export function buildOnboardingEmail(input: BuildOnboardingEmailInput): OnboardingEmailContent {
   const loginUrl = getLoginUrl();
-  const subject = "Your Activity Log account is ready";
+  const subject = "Your QRLog account is ready";
 
   const lines = [
     `Welcome ${input.firstName},`,
     "",
-    "Your Activity Log access is ready.",
+    "Your QRLog access is ready.",
   ];
 
   if (input.organizationName?.trim()) {
@@ -99,11 +99,11 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
   lines.push("");
 
   if (input.temporaryPassword) {
-    lines.push("Use these credentials to sign in to the Activity Log application.");
+    lines.push("Use these credentials to sign in to the QRLog application.");
   } else if (input.useExistingPassword) {
-    lines.push("Use your existing Activity Log password to sign in to this organization.");
+    lines.push("Use your existing QRLog password to sign in to this organization.");
   } else {
-    lines.push("Use your Activity Log credentials to sign in to this organization.");
+    lines.push("Use your QRLog credentials to sign in to this organization.");
   }
 
   lines.push(
@@ -120,7 +120,7 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; color: #172220; line-height: 1.6;">
       <p>Welcome ${escapeHtml(input.firstName)},</p>
-      <p>Your Activity Log access is ready.</p>
+      <p>Your QRLog access is ready.</p>
       <div style="border: 1px solid #d7d2c6; border-radius: 16px; padding: 16px; background: #f8f4ec;">
         ${input.organizationName?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization</strong><br />${escapeHtml(input.organizationName.trim())}</p>` : ""}
         ${input.organizationCode?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization Code</strong><br />${escapeHtml(input.organizationCode.trim().toUpperCase())}</p>` : ""}
@@ -129,16 +129,16 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
           input.temporaryPassword
             ? `<p style="margin: 0;"><strong>Temporary Password</strong><br />${escapeHtml(input.temporaryPassword)}</p>`
             : input.useExistingPassword
-              ? `<p style="margin: 0;">Use your existing Activity Log password to sign in to this organization.</p>`
+              ? `<p style="margin: 0;">Use your existing QRLog password to sign in to this organization.</p>`
               : ""
         }
       </div>
       <p>${
         input.temporaryPassword
-          ? "Use these credentials to sign in to the Activity Log application."
+          ? "Use these credentials to sign in to the QRLog application."
           : input.useExistingPassword
-            ? "Use your existing Activity Log password to sign in to this organization."
-            : "Use your Activity Log credentials to sign in to this organization."
+            ? "Use your existing QRLog password to sign in to this organization."
+            : "Use your QRLog credentials to sign in to this organization."
       }</p>
       ${loginUrl ? `<p><strong>Login URL</strong><br /><a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>` : ""}
       <p>Please change your password after your first login.</p>
@@ -162,7 +162,7 @@ export function buildExistingMembershipEmail(input: BuildExistingMembershipEmail
   const lines = [
     `Hello ${input.firstName},`,
     "",
-    `You've been added to ${input.organizationName?.trim() || "a new Activity Log organization"}.`,
+    `You've been added to ${input.organizationName?.trim() || "a new QRLog organization"}.`,
   ];
 
   if (input.organizationName?.trim()) {
@@ -173,7 +173,7 @@ export function buildExistingMembershipEmail(input: BuildExistingMembershipEmail
     lines.push("", "Organization Code:", input.organizationCode.trim().toUpperCase());
   }
 
-  lines.push("", "Username:", input.username, "", "Use your existing Activity Log password.", "");
+  lines.push("", "Username:", input.username, "", "Use your existing QRLog password.", "");
 
   if (loginUrl) {
     lines.push("Login URL:", loginUrl, "");
@@ -186,12 +186,12 @@ export function buildExistingMembershipEmail(input: BuildExistingMembershipEmail
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; color: #172220; line-height: 1.6;">
       <p>Hello ${escapeHtml(input.firstName)},</p>
-      <p>You've been added to ${escapeHtml(input.organizationName?.trim() || "a new Activity Log organization")}.</p>
+      <p>You've been added to ${escapeHtml(input.organizationName?.trim() || "a new QRLog organization")}.</p>
       <div style="border: 1px solid #d7d2c6; border-radius: 16px; padding: 16px; background: #f8f4ec;">
         ${input.organizationName?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization</strong><br />${escapeHtml(input.organizationName.trim())}</p>` : ""}
         ${input.organizationCode?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization Code</strong><br />${escapeHtml(input.organizationCode.trim().toUpperCase())}</p>` : ""}
         <p style="margin: 0 0 12px;"><strong>Username</strong><br />${escapeHtml(input.username)}</p>
-        <p style="margin: 0;">Use your existing Activity Log password.</p>
+        <p style="margin: 0;">Use your existing QRLog password.</p>
       </div>
       ${loginUrl ? `<p><strong>Login URL</strong><br /><a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>` : ""}
       <p>If you have trouble accessing your account, please contact your administrator.</p>

@@ -1,7 +1,8 @@
-export const APP_NAME = "Activity Log";
+export const APP_NAME = "QRLog";
+export const TAGLINE = "Scan. Log. Done.";
 export const ORGANIZATION_NAME = "Your Organization";
 export const ORGANIZATION_SHORT_NAME = "Organization";
-export const ADMIN_PORTAL_NAME = "Activity Log Admin";
+export const ADMIN_PORTAL_NAME = "QRLog Admin";
 export const DEFAULT_TIMEZONE = "Asia/Manila";
 export const DEFAULT_QR_TTL_SECONDS = 12 * 60 * 60;
 export const DEFAULT_WORK_START_TIME = "08:00";

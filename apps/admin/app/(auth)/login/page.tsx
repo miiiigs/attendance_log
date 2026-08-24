@@ -22,7 +22,7 @@ export default async function LoginPage() {
         <section className="hidden w-[24rem] shrink-0 flex-col justify-between bg-[var(--sidebar)] px-12 py-12 text-white lg:flex">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] text-sm font-bold tracking-[0.18em] text-white">
-              AL
+              QR
             </div>
             <div>
               <p className="max-w-[220px] text-sm font-semibold leading-tight">{APP_NAME}</p>
@@ -48,7 +48,7 @@ export default async function LoginPage() {
           <div className="w-full max-w-md">
             <div className="mb-10 flex items-center gap-3 lg:hidden">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-sm font-bold tracking-[0.18em] text-[var(--foreground)] shadow-[0_10px_24px_rgba(22,24,29,0.08)]">
-                AL
+                QR
               </div>
               <div>
                 <p className="text-sm font-semibold text-[var(--foreground)]">{ADMIN_PORTAL_NAME}</p>
@@ -72,7 +72,7 @@ export default async function LoginPage() {
                 Represent a community or organization?
               </h3>
               <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-                Apply for an Activity Log workspace to manage your people, activities, and attendance in one place.
+                Apply for a QRLog workspace to manage your people, activities, and attendance in one place.
               </p>
               <Link href="/apply" className="admin-button mt-4 inline-flex">
                 Apply for an organization workspace

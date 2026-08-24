@@ -17,7 +17,7 @@ Required server environment variables:
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
-- optional `RESEND_FROM_NAME`
+- `RESEND_FROM_NAME` (set to `QRLog`)
 
 ## Mobile
 
@@ -48,7 +48,7 @@ Resend is the transactional email provider for:
 Password recovery continues to use Supabase Auth semantics. Production should route
 Supabase Auth email through Resend SMTP (or another approved SMTP relay) and allow:
 
-- `https://attendancelogger.vercel.app/reset-password`
+- `https://qrlogph.vercel.app/reset-password`
 - local development reset URLs as needed
 - Vercel preview redirect URLs if previews need recovery testing
 

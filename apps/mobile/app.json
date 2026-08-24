@@ -1,30 +1,30 @@
 {
   "expo": {
-    "name": "Activity Log",
+    "name": "QRLog",
     "slug": "attendance-logger-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/scppa-logo.png",
-    "scheme": "attendance",
+    "icon": "./assets/images/qrlog-icon.png",
+    "scheme": "qrlog",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Attendance Logger uses the camera to scan time in and time out QR codes."
+        "NSCameraUsageDescription": "QRLog uses the camera to scan time in and time out QR codes."
       }
     },
     "android": {
-      "package": "com.scppa.portal",
+      "package": "com.miguelleysa.qrlog",
       "adaptiveIcon": {
-        "backgroundColor": "#F8F7F4",
-        "foregroundImage": "./assets/images/scppa-logo.png"
+        "backgroundColor": "#166534",
+        "foregroundImage": "./assets/images/qrlog-adaptive-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/scppa-logo.png"
+      "favicon": "./assets/images/qrlog-favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -32,12 +32,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/scppa-logo.png",
+          "image": "./assets/images/qrlog-splash.png",
           "imageWidth": 180,
           "resizeMode": "contain",
           "backgroundColor": "#F8F7F4",
           "dark": {
-            "image": "./assets/images/scppa-logo.png",
+            "image": "./assets/images/qrlog-splash.png",
             "backgroundColor": "#F8F7F4"
           }
         }
