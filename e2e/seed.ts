@@ -28,11 +28,17 @@ export async function seedE2e() {
     await pg.query("grant select, insert, update, delete on all tables in schema public to service_role;");
     await pg.query("grant execute on all functions in schema public to service_role;");
 
-    // Resolve the organizations (SCPPA is created by migrations).
-    const scppaResult = await pg.query("select id from public.organizations where lower(code) = 'scppa' limit 1");
-    const scppaOrgId: string = scppaResult.rows[0]?.id;
-    if (!scppaOrgId) {
-      throw new Error("E2E seed: SCPPA organization is missing. Run `pnpm supabase:reset` first.");
+    // Resolve the primary E2E organization (dedicated, never the real SCPPA tenant).
+    const primaryOrgResult = await pg.query(
+      `insert into public.organizations (name, code, slug, status, timezone, approved_at)
+       values ('E2E Org A', 'E2EA', 'e2e-a', 'active', 'Asia/Manila', now())
+       on conflict (lower(code)) do nothing returning id`,
+    );
+    const primaryOrgId: string =
+      primaryOrgResult.rows[0]?.id ??
+      (await pg.query("select id from public.organizations where lower(code) = 'e2ea' limit 1")).rows[0]?.id;
+    if (!primaryOrgId) {
+      throw new Error("E2E seed: unable to resolve the E2EA organization. Run `pnpm supabase:reset` first.");
     }
 
     const orgBResult = await pg.query(
@@ -71,10 +77,10 @@ export async function seedE2e() {
     );
 
     // Clear previous E2E activity state in the two E2E organizations only.
-    await pg.query(`delete from public.qr_sessions where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
-    await pg.query(`delete from public.activity_scans where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
-    await pg.query(`delete from public.activity_logs where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
-    await pg.query(`delete from public.activities where organization_id in ($1, $2)`, [scppaOrgId, orgBId]);
+    await pg.query(`delete from public.qr_sessions where organization_id in ($1, $2)`, [primaryOrgId, orgBId]);
+    await pg.query(`delete from public.activity_scans where organization_id in ($1, $2)`, [primaryOrgId, orgBId]);
+    await pg.query(`delete from public.activity_logs where organization_id in ($1, $2)`, [primaryOrgId, orgBId]);
+    await pg.query(`delete from public.activities where organization_id in ($1, $2)`, [primaryOrgId, orgBId]);
 
     // Remove any E2E identities from previous runs: profiles/memberships
     // first (profiles.id restricts auth.users deletion), then the auth user.
@@ -138,12 +144,12 @@ export async function seedE2e() {
     await pg.query(
       `insert into public.organization_memberships (organization_id, user_id, username, role, status)
        values ($1, $2, $3, 'organization_admin', 'active')`,
-      [scppaOrgId, created.get("admin")!.id, e2eIdentities.admin.username],
+      [primaryOrgId, created.get("admin")!.id, e2eIdentities.admin.username],
     );
     await pg.query(
       `insert into public.organization_memberships (organization_id, user_id, username, role, status)
        values ($1, $2, $3, 'member', 'active')`,
-      [scppaOrgId, created.get("member")!.id, e2eIdentities.member.username],
+      [primaryOrgId, created.get("member")!.id, e2eIdentities.member.username],
     );
     await pg.query(
       `insert into public.organization_memberships (organization_id, user_id, username, role, status)
