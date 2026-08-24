@@ -116,7 +116,7 @@ export const e2eIdentities = {
 };
 
 export const e2eOrgCodes = {
-  scppa: "SCPPA",
+  primary: "E2EA",
   orgB: "E2EB",
 };
 

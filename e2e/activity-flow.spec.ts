@@ -17,22 +17,22 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     await page.locator("#identifier").fill(e2eIdentities.admin.username);
     await page.locator("#password").fill(password);
     await page.getByRole("button", { name: "Sign In" }).click();
-    await page.waitForURL("**/org/scppa/dashboard");
+    await page.waitForURL("**/org/e2ea/dashboard");
     await expect(page.getByRole("heading", { name: "Organization dashboard" })).toBeVisible();
 
     // Legacy organization-admin routes redirect to the organization console.
     await page.goto("/attendance");
-    await expect(page).toHaveURL(/\/org\/scppa\/activities$/);
+    await expect(page).toHaveURL(/\/org\/e2ea\/activities$/);
     await page.goto("/qr");
-    await expect(page).toHaveURL(/\/org\/scppa\/current-activity$/);
+    await expect(page).toHaveURL(/\/org\/e2ea\/current-activity$/);
     await page.goto("/employees");
-    await expect(page).toHaveURL(/\/org\/scppa\/people$/);
-    await page.goto("/org/scppa/current-activity");
+    await expect(page).toHaveURL(/\/org\/e2ea\/people$/);
+    await page.goto("/org/e2ea/current-activity");
 
     // ------------------------------------------------------------------
     // 2. Start an activity; QR is generated automatically.
     // ------------------------------------------------------------------
-    await page.goto("/org/scppa/current-activity");
+    await page.goto("/org/e2ea/current-activity");
     await page.getByPlaceholder("e.g. General Assembly").fill("E2E Test Activity");
     await page.getByTestId("start-activity-submit").click();
 
@@ -54,14 +54,14 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     // ------------------------------------------------------------------
     const memberLogin = await request.post("/api/auth/mobile-login", {
       data: {
-        organizationCode: e2eOrgCodes.scppa,
+        organizationCode: e2eOrgCodes.primary,
         username: e2eIdentities.member.username,
         password,
       },
     });
     expect(memberLogin.ok()).toBeTruthy();
     const memberSession = await memberLogin.json();
-    expect(memberSession.organization.code).toBe(e2eOrgCodes.scppa);
+    expect(memberSession.organization.code).toBe(e2eOrgCodes.primary);
     expect(memberSession.membership.username).toBe(e2eIdentities.member.username);
     expect(memberSession.access_token).toBeTruthy();
 
@@ -92,7 +92,7 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     await expect(memberRow(page).getByText("Completed")).toBeVisible();
 
     // ------------------------------------------------------------------
-    // 7. Negative tenant case: an Org B member cannot scan the SCPPA QR.
+    // 7. Negative tenant case: an Org B member cannot scan the E2EA QR.
     // ------------------------------------------------------------------
     const memberBLogin = await request.post("/api/auth/mobile-login", {
       data: {
@@ -114,11 +114,11 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     // ------------------------------------------------------------------
     // 8. Org admin ends the activity; QR stops working; history preserved.
     // ------------------------------------------------------------------
-    await page.goto("/org/scppa/current-activity");
+    await page.goto("/org/e2ea/current-activity");
     await page.getByTestId("end-activity-trigger").click();
     await page.getByTestId("end-activity-confirm").click();
 
-    await page.waitForURL(/\/org\/scppa\/activities\/[0-9a-f-]+$/);
+    await page.waitForURL(/\/org\/e2ea\/activities\/[0-9a-f-]+$/);
     await expect(page.getByText("ended", { exact: true })).toBeVisible();
     await expect(memberRow(page).getByText("Completed")).toBeVisible();
 

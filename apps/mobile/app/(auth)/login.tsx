@@ -161,7 +161,7 @@ export default function LoginScreen() {
                 autoCapitalize="characters"
                 autoCorrect={false}
                 autoComplete="organization"
-                placeholder="e.g. SCPPA"
+                placeholder="e.g. ACME"
                 placeholderTextColor={mobileTheme.mutedSoft}
                 style={styles.input}
               />
