@@ -21,7 +21,11 @@ export function ResetPasswordForm() {
     async function initializeRecovery() {
       const supabase = createSupabaseBrowserClient();
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const code = searchParams.get("code");
       const tokenHash = searchParams.get("token_hash");
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const recoveryType = searchParams.get("type") || hashParams.get("type");
       const errorDescription = searchParams.get("error_description") || hashParams.get("error_description");
 
       if (errorDescription) {
@@ -32,13 +36,40 @@ export function ResetPasswordForm() {
         return;
       }
 
-      if (tokenHash && searchParams.get("type") === "recovery") {
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          if (active) {
+            setError("This password reset link is invalid or expired.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        window.history.replaceState({}, "", "/reset-password");
+      } else if (tokenHash && recoveryType === "recovery") {
         const { error: verifyError } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: "recovery",
         });
 
         if (verifyError) {
+          if (active) {
+            setError("This password reset link is invalid or expired.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        window.history.replaceState({}, "", "/reset-password");
+      } else if (accessToken && refreshToken && recoveryType === "recovery") {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (sessionError) {
           if (active) {
             setError("This password reset link is invalid or expired.");
             setLoading(false);
