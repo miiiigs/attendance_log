@@ -10,7 +10,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://aluqdhhflqktraxrrrew.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_No9r5B5VSG7jwPgukx7BlQ_v-heqWDp",
-        "EXPO_PUBLIC_ADMIN_APP_URL": "https://scppa-portal.vercel.app"
+        "EXPO_PUBLIC_ADMIN_APP_URL": "https://attendancelogger.vercel.app"
       }
     },
     "preview": {

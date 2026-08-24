@@ -6,6 +6,7 @@ type AdminProfile = {
   id: string;
   first_name?: string | null;
   last_name?: string | null;
+  email?: string | null;
   role: string;
   status: string;
   platform_role?: string | null;
@@ -14,7 +15,7 @@ type AdminProfile = {
 async function getProfile(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string) {
   const withPlatformRole = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, role, status, platform_role")
+    .select("id, first_name, last_name, email, role, status, platform_role")
     .eq("id", userId)
     .maybeSingle<AdminProfile>();
 
@@ -28,7 +29,7 @@ async function getProfile(supabase: Awaited<ReturnType<typeof createSupabaseServ
 
   const fallback = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, role, status")
+    .select("id, first_name, last_name, email, role, status")
     .eq("id", userId)
     .maybeSingle<Omit<AdminProfile, "platform_role">>();
 

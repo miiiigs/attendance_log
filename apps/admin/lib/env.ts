@@ -26,6 +26,10 @@ function requireEnv(name: string) {
   return value;
 }
 
+function optionalEnv(name: string) {
+  return normalizeEnvValue(process.env[name]);
+}
+
 export function getPublicSupabaseEnv() {
   const url = normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const anonKey = normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -51,4 +55,26 @@ export function getPublicSupabaseEnv() {
 
 export function getServiceRoleKey() {
   return requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+}
+
+export function getOptionalAppBaseUrl() {
+  return optionalEnv("APP_BASE_URL");
+}
+
+export function getOptionalResendConfig() {
+  const apiKey = optionalEnv("RESEND_API_KEY");
+  const fromEmail = optionalEnv("RESEND_FROM_EMAIL");
+  const fromName = optionalEnv("RESEND_FROM_NAME");
+  const appBaseUrl = optionalEnv("APP_BASE_URL");
+
+  if (!apiKey || !fromEmail || !appBaseUrl) {
+    return null;
+  }
+
+  return {
+    apiKey,
+    fromEmail,
+    fromName,
+    appBaseUrl: appBaseUrl.endsWith("/") ? appBaseUrl.slice(0, -1) : appBaseUrl,
+  };
 }

@@ -5,7 +5,7 @@ import { useState } from "react";
 
 interface CredentialsResult {
   username: string;
-  temporaryPassword: string;
+  temporaryPassword: string | null;
   onboarding: {
     deliveryStatus: "sent" | "not_configured" | "unavailable" | "failed";
     recipient: string;
@@ -28,8 +28,9 @@ export function OrgCredentialsPanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CredentialsResult | null>(null);
+  const [lastMode, setLastMode] = useState<"notify" | "regenerate" | "retry" | null>(null);
 
-  async function handleResendCredentials(mode: "regenerate" | "retry" = "regenerate") {
+  async function handleResendCredentials(mode: "notify" | "regenerate" | "retry" = "regenerate") {
     if (
       mode === "regenerate" &&
       typeof window !== "undefined" &&
@@ -42,6 +43,7 @@ export function OrgCredentialsPanel({
     setError(null);
     setNotice(null);
     setSuccess(null);
+    setLastMode(mode);
 
     const response = await fetch(`/api/org/${slug}/people/${personId}/credentials`, {
       method: "POST",
@@ -50,7 +52,7 @@ export function OrgCredentialsPanel({
       },
       body: JSON.stringify({
         mode,
-        password: mode === "retry" ? credentials?.temporaryPassword : undefined,
+        password: mode === "retry" ? credentials?.temporaryPassword ?? undefined : undefined,
       }),
     });
 
@@ -66,7 +68,7 @@ export function OrgCredentialsPanel({
 
     setCredentials({
       username: String(result.username ?? ""),
-      temporaryPassword: String(result.temporaryPassword ?? ""),
+      temporaryPassword: result.temporaryPassword ? String(result.temporaryPassword) : null,
       onboarding: result.onboarding ?? {
         deliveryStatus: "failed",
         recipient: "",
@@ -80,14 +82,18 @@ export function OrgCredentialsPanel({
     if (result.onboarding?.deliveryStatus !== "sent") {
       setNotice(
         mode === "regenerate"
-          ? "New credentials generated successfully, but automated email is not available. The password for this person has already been reset. Send the prepared email manually or retry the automation."
+          ? "A new temporary password was generated, but automated email is not available. Send the prepared email manually or retry the automation."
           : (result.onboarding?.reason ?? "Automated email could not be sent."),
       );
       setLoading(false);
       return;
     }
 
-    setSuccess(`New credentials generated successfully. Automated email sent to: ${result.onboarding.recipient}.`);
+    setSuccess(
+      mode === "notify"
+        ? `Sign-in email sent to ${result.onboarding.recipient}.`
+        : `New credentials generated successfully. Automated email sent to ${result.onboarding.recipient}.`,
+    );
     setLoading(false);
   }
 
@@ -103,7 +109,7 @@ export function OrgCredentialsPanel({
       {credentials ? (
         <dl className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-4 text-sm">
           <CredentialRow label="Username" value={credentials.username} />
-          <CredentialRow label="New Temporary Password" value={credentials.temporaryPassword} />
+          {credentials.temporaryPassword ? <CredentialRow label="New Temporary Password" value={credentials.temporaryPassword} /> : null}
           <CredentialRow label="Recipient" value={credentials.onboarding.recipient} />
         </dl>
       ) : null}
@@ -117,8 +123,12 @@ export function OrgCredentialsPanel({
         <div className="space-y-4 rounded-2xl border border-[#fde68a] bg-[var(--warning-soft)] px-4 py-4 text-sm text-[var(--foreground)]">
           <div>
             <p className="font-semibold text-[var(--warning)]">Automated Email Not Available</p>
-            <p className="mt-1">The password for this person has already been reset.</p>
-            <p className="mt-2">Send the following credentials manually to {credentials.onboarding.recipient}.</p>
+            <p className="mt-1">
+              {credentials.temporaryPassword
+                ? "A new password has already been issued for this person."
+                : "The sign-in notification is ready, but automated delivery did not complete."}
+            </p>
+            <p className="mt-2">Send the following message manually to {credentials.onboarding.recipient}.</p>
           </div>
 
           <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/75 p-4">
@@ -141,7 +151,7 @@ export function OrgCredentialsPanel({
           {credentials.onboarding.deliveryStatus !== "sent" ? (
             <button
               type="button"
-              onClick={() => handleResendCredentials("retry").catch(() => undefined)}
+              onClick={() => handleResendCredentials(credentials.temporaryPassword ? "retry" : "notify").catch(() => undefined)}
               disabled={loading}
               className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
             >
@@ -151,15 +161,26 @@ export function OrgCredentialsPanel({
           ) : null}
         </div>
       ) : null}
-      <button
-        type="button"
-        onClick={() => handleResendCredentials("regenerate").catch(() => undefined)}
-        disabled={loading}
-        className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        <Key className="h-4 w-4" />
-        {loading ? "Generating..." : "Generate New Credentials"}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => handleResendCredentials("notify").catch(() => undefined)}
+          disabled={loading}
+          className="admin-button-secondary disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <RefreshCw className="h-4 w-4" />
+          {loading && lastMode === "notify" ? "Sending..." : "Send Sign-In Email"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleResendCredentials("regenerate").catch(() => undefined)}
+          disabled={loading}
+          className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <Key className="h-4 w-4" />
+          {loading && lastMode !== "notify" ? "Generating..." : "Generate New Password"}
+        </button>
+      </div>
     </div>
   );
 }

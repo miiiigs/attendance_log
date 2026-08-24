@@ -1,4 +1,6 @@
-const EMAIL_TIMEOUT_MS = 4000;
+import { APP_NAME } from "@attendance/shared";
+import { Resend } from "resend";
+import { getOptionalResendConfig } from "../env";
 
 export type OnboardingDeliveryResult =
   | {
@@ -28,9 +30,21 @@ export interface OnboardingEmailContent {
   fullEmailText: string;
 }
 
-export interface AttemptAutomatedOnboardingEmailInput
-  extends BuildOnboardingEmailInput,
-    OnboardingEmailContent {}
+export interface BuildExistingMembershipEmailInput {
+  firstName: string;
+  lastName?: string | null;
+  email: string;
+  username: string;
+  organizationName?: string | null;
+  organizationCode?: string | null;
+}
+
+type EmailVariant = "onboarding" | "membership";
+
+export interface SendEmailResult {
+  content: OnboardingEmailContent;
+  delivery: OnboardingDeliveryResult;
+}
 
 function escapeHtml(value: string) {
   return value
@@ -41,22 +55,25 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function getN8nConfig() {
-  const url = process.env.N8N_ONBOARDING_WEBHOOK_URL?.trim();
-  const secret = process.env.N8N_ONBOARDING_WEBHOOK_SECRET?.trim();
+function formatSender(fromEmail: string, fromName: string) {
+  return `${fromName} <${fromEmail}>`;
+}
 
-  if (!url || !secret) {
+function getLoginUrl() {
+  const config = getOptionalResendConfig();
+  if (!config) {
     return null;
   }
 
-  return { url, secret };
+  return `${config.appBaseUrl}/login`;
 }
 
 export function buildOnboardingEmail(input: BuildOnboardingEmailInput): OnboardingEmailContent {
-  const subject = "Your Activity Log credentials";
+  const loginUrl = getLoginUrl();
+  const subject = "Your Activity Log account is ready";
 
   const lines = [
-    `Hello ${input.firstName},`,
+    `Welcome ${input.firstName},`,
     "",
     "Your Activity Log access is ready.",
   ];
@@ -75,6 +92,10 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
     lines.push("", "Temporary Password:", input.temporaryPassword);
   }
 
+  if (loginUrl) {
+    lines.push("", "Login URL:", loginUrl);
+  }
+
   lines.push("");
 
   if (input.temporaryPassword) {
@@ -87,6 +108,8 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
 
   lines.push(
     "",
+    "Please change your password after your first login.",
+    "",
     "Please keep your login details private and do not share them with anyone.",
     "",
     "If you have trouble accessing your account, please contact your administrator.",
@@ -96,7 +119,7 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
   const fullEmailText = `To: ${input.email}\nSubject: ${subject}\n\n${textBody}`;
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; color: #172220; line-height: 1.6;">
-      <p>Hello ${escapeHtml(input.firstName)},</p>
+      <p>Welcome ${escapeHtml(input.firstName)},</p>
       <p>Your Activity Log access is ready.</p>
       <div style="border: 1px solid #d7d2c6; border-radius: 16px; padding: 16px; background: #f8f4ec;">
         ${input.organizationName?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization</strong><br />${escapeHtml(input.organizationName.trim())}</p>` : ""}
@@ -117,6 +140,8 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
             ? "Use your existing Activity Log password to sign in to this organization."
             : "Use your Activity Log credentials to sign in to this organization."
       }</p>
+      ${loginUrl ? `<p><strong>Login URL</strong><br /><a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>` : ""}
+      <p>Please change your password after your first login.</p>
       <p>Please keep your login details private and do not share them with anyone.</p>
       <p>If you have trouble accessing your account, please contact your administrator.</p>
     </div>
@@ -131,85 +156,123 @@ export function buildOnboardingEmail(input: BuildOnboardingEmailInput): Onboardi
   };
 }
 
-function buildWebhookPayload(input: AttemptAutomatedOnboardingEmailInput) {
-  const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+export function buildExistingMembershipEmail(input: BuildExistingMembershipEmailInput): OnboardingEmailContent {
+  const loginUrl = getLoginUrl();
+  const subject = `You've been added to ${input.organizationName?.trim() || APP_NAME}`;
+  const lines = [
+    `Hello ${input.firstName},`,
+    "",
+    `You've been added to ${input.organizationName?.trim() || "a new Activity Log organization"}.`,
+  ];
 
-  return {
-    event: "person.created",
-    to: input.recipient,
-    subject: input.subject,
-    textBody: input.textBody,
-    htmlBody: input.htmlBody,
-    firstName: input.firstName,
-    lastName: input.lastName ?? "",
-    fullName,
-    email: input.email,
-    username: input.username,
-    temporaryPassword: input.temporaryPassword ?? undefined,
-    organizationName: input.organizationName ?? undefined,
-    organizationCode: input.organizationCode ?? undefined,
-    useExistingPassword: input.useExistingPassword ?? false,
-  };
-}
-
-function mapFailure(status: number): OnboardingDeliveryResult {
-  if (status >= 500) {
-    return {
-      status: "unavailable",
-      reason: "Automated email delivery is currently unavailable.",
-    };
+  if (input.organizationName?.trim()) {
+    lines.push("", "Organization:", input.organizationName.trim());
   }
 
+  if (input.organizationCode?.trim()) {
+    lines.push("", "Organization Code:", input.organizationCode.trim().toUpperCase());
+  }
+
+  lines.push("", "Username:", input.username, "", "Use your existing Activity Log password.", "");
+
+  if (loginUrl) {
+    lines.push("Login URL:", loginUrl, "");
+  }
+
+  lines.push("If you have trouble accessing your account, please contact your administrator.");
+
+  const textBody = lines.join("\n");
+  const fullEmailText = `To: ${input.email}\nSubject: ${subject}\n\n${textBody}`;
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; color: #172220; line-height: 1.6;">
+      <p>Hello ${escapeHtml(input.firstName)},</p>
+      <p>You've been added to ${escapeHtml(input.organizationName?.trim() || "a new Activity Log organization")}.</p>
+      <div style="border: 1px solid #d7d2c6; border-radius: 16px; padding: 16px; background: #f8f4ec;">
+        ${input.organizationName?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization</strong><br />${escapeHtml(input.organizationName.trim())}</p>` : ""}
+        ${input.organizationCode?.trim() ? `<p style="margin: 0 0 12px;"><strong>Organization Code</strong><br />${escapeHtml(input.organizationCode.trim().toUpperCase())}</p>` : ""}
+        <p style="margin: 0 0 12px;"><strong>Username</strong><br />${escapeHtml(input.username)}</p>
+        <p style="margin: 0;">Use your existing Activity Log password.</p>
+      </div>
+      ${loginUrl ? `<p><strong>Login URL</strong><br /><a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>` : ""}
+      <p>If you have trouble accessing your account, please contact your administrator.</p>
+    </div>
+  `.trim();
+
   return {
-    status: "failed",
-    reason: "Automated email could not be sent.",
+    recipient: input.email,
+    subject,
+    textBody,
+    htmlBody,
+    fullEmailText,
   };
 }
 
-export async function attemptAutomatedOnboardingEmail(
-  input: AttemptAutomatedOnboardingEmailInput,
+async function sendTransactionalEmail(
+  variant: EmailVariant,
+  content: OnboardingEmailContent,
+  metadata: { email: string; username: string },
 ): Promise<OnboardingDeliveryResult> {
-  const config = getN8nConfig();
+  const config = getOptionalResendConfig();
 
   if (!config) {
     return {
       status: "not_configured",
-      reason: "Automated onboarding email is not configured.",
+      reason: "Transactional email is not configured.",
     };
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), EMAIL_TIMEOUT_MS);
+  const resend = new Resend(config.apiKey);
 
   try {
-    const response = await fetch(config.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Attendance-Webhook-Secret": config.secret,
-      },
-      body: JSON.stringify(buildWebhookPayload(input)),
-      signal: controller.signal,
+    const response = await resend.emails.send({
+      from: formatSender(config.fromEmail, config.fromName || APP_NAME),
+      to: content.recipient,
+      subject: content.subject,
+      text: content.textBody,
+      html: content.htmlBody,
     });
 
-    if (!response.ok) {
-      console.warn(`Automated onboarding unavailable for ${input.username} / ${input.email} with status ${response.status}.`);
-      return mapFailure(response.status);
+    if (response.error) {
+      console.warn(`Resend ${variant} email failed for ${metadata.username} / ${metadata.email}.`);
+      return {
+        status: "failed",
+        reason: "Automated email could not be sent.",
+      };
     }
 
     return { status: "sent" };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.warn(`Automated onboarding timed out for ${input.username} / ${input.email}.`);
+      console.warn(`Resend ${variant} email timed out for ${metadata.username} / ${metadata.email}.`);
     } else {
-      console.warn(`Automated onboarding unavailable for ${input.username} / ${input.email}.`);
+      console.warn(`Resend ${variant} email unavailable for ${metadata.username} / ${metadata.email}.`);
     }
 
     return {
       status: "unavailable",
       reason: "Automated email delivery is currently unavailable.",
     };
-  } finally {
-    clearTimeout(timeout);
   }
+}
+
+export async function sendOnboardingEmail(input: BuildOnboardingEmailInput): Promise<SendEmailResult> {
+  const content = buildOnboardingEmail(input);
+  const delivery = await sendTransactionalEmail("onboarding", content, {
+    email: input.email,
+    username: input.username,
+  });
+
+  return { content, delivery };
+}
+
+export async function sendExistingMembershipEmail(
+  input: BuildExistingMembershipEmailInput,
+): Promise<SendEmailResult> {
+  const content = buildExistingMembershipEmail(input);
+  const delivery = await sendTransactionalEmail("membership", content, {
+    email: input.email,
+    username: input.username,
+  });
+
+  return { content, delivery };
 }

@@ -16,7 +16,7 @@ interface CreatedCredentials {
   personId: string;
   username: string;
   temporaryPassword: string | null;
-  existingAccount: boolean;
+  usedExistingAccount: boolean;
   onboarding: {
     deliveryStatus: "sent" | "not_configured" | "unavailable" | "failed";
     recipient: string;
@@ -99,7 +99,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
         personId: result.person.id,
         username: result.person.username,
         temporaryPassword: result.temporaryPassword,
-        existingAccount: !result.temporaryPassword,
+        usedExistingAccount: result.usedExistingAccount,
         onboarding: {
           deliveryStatus: result.onboarding.deliveryStatus,
           recipient: result.onboarding.recipient,
@@ -139,7 +139,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        mode: "retry",
+        mode: createdCredentials.usedExistingAccount ? "notify" : "retry",
         password: createdCredentials.temporaryPassword,
       }),
     });
@@ -179,15 +179,17 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
           </div>
           <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">Person created successfully</h2>
           <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-            {createdCredentials.existingAccount
+            {createdCredentials.usedExistingAccount
               ? "This person already had an account and was added as a member of this organization. No password was changed."
-              : "Credentials are ready for delivery and the new account can sign in immediately."}
+              : createdCredentials.onboarding.deliveryStatus === "sent"
+                ? "The new account was created and the sign-in details were delivered securely by email."
+                : "The new account was created, but automated delivery is unavailable right now."}
           </p>
         </div>
 
         <dl className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] p-4 text-sm">
           <CredentialRow label="Username" value={createdCredentials.username} />
-          {!createdCredentials.existingAccount ? (
+          {createdCredentials.temporaryPassword ? (
             <CredentialRow label="Temporary Password" value={createdCredentials.temporaryPassword ?? ""} />
           ) : null}
           <CredentialRow label="Email" value={createdCredentials.onboarding.recipient} />
@@ -228,7 +230,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
         )}
 
         <div className="flex flex-wrap gap-3">
-          {automationUnavailable && !createdCredentials.existingAccount ? (
+          {automationUnavailable ? (
             <button
               type="button"
               onClick={() => retryEmail().catch(() => undefined)}
@@ -267,7 +269,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
 
       <p className="text-sm text-[var(--muted)]">
         {mode === "create"
-          ? "A username and temporary password will be generated for this organization. If the email already belongs to an existing account, that account is reused without resetting its password."
+          ? "A membership username will be generated for this organization. New global users receive a temporary password by email, while existing accounts keep their current password."
           : "The username is the person's login identifier within this organization and is read-only after creation."}
       </p>
 
@@ -275,7 +277,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
         <div className="admin-card-flat flex gap-2.5 px-4 py-3.5">
           <Key className="mt-0.5 h-4 w-4 shrink-0 text-[var(--muted)]" />
           <p className="text-xs leading-6 text-[var(--muted)]">
-            Credentials are auto-generated during creation and can be copied or emailed immediately after save.
+            Account delivery is automatic. Manual credential handling only appears if email delivery fails.
           </p>
         </div>
       ) : (
