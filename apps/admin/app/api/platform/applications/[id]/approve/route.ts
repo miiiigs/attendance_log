@@ -4,8 +4,8 @@ import { requirePlatformAdminApiContext } from "../../../../../../lib/auth";
 import { buildOrganizationSlug } from "../../../../../../lib/organizations";
 import { generateTemporaryPassword } from "../../../../../../lib/passwords";
 import {
-  attemptAutomatedOnboardingEmail,
-  buildOnboardingEmail,
+  sendExistingMembershipEmail,
+  sendOnboardingEmail,
 } from "../../../../../../lib/server/onboarding-email";
 import { createSupabaseServerClient } from "../../../../../../lib/supabase/server";
 import { createSupabaseServiceClient } from "../../../../../../lib/supabase/service";
@@ -235,28 +235,26 @@ export async function POST(
       );
     }
 
-    const onboardingEmail = buildOnboardingEmail({
-      firstName: parsed.data.administratorFirstName,
-      lastName: parsed.data.administratorLastName,
-      email: administratorEmail,
-      username: generatedUsername,
-      temporaryPassword,
-      organizationName: organization.name,
-      organizationCode: organization.code,
-      useExistingPassword: !temporaryPassword,
-    });
+    const emailResult = temporaryPassword
+      ? await sendOnboardingEmail({
+          firstName: parsed.data.administratorFirstName,
+          lastName: parsed.data.administratorLastName,
+          email: administratorEmail,
+          username: generatedUsername,
+          temporaryPassword,
+          organizationName: organization.name,
+          organizationCode: organization.code,
+        })
+      : await sendExistingMembershipEmail({
+          firstName: parsed.data.administratorFirstName,
+          lastName: parsed.data.administratorLastName,
+          email: administratorEmail,
+          username: generatedUsername,
+          organizationName: organization.name,
+          organizationCode: organization.code,
+        });
 
-    const delivery = await attemptAutomatedOnboardingEmail({
-      firstName: parsed.data.administratorFirstName,
-      lastName: parsed.data.administratorLastName,
-      email: administratorEmail,
-      username: generatedUsername,
-      temporaryPassword,
-      organizationName: organization.name,
-      organizationCode: organization.code,
-      useExistingPassword: !temporaryPassword,
-      ...onboardingEmail,
-    });
+    const manualTemporaryPassword = temporaryPassword && emailResult.delivery.status !== "sent" ? temporaryPassword : null;
 
     return NextResponse.json({
       ok: true,
@@ -267,14 +265,14 @@ export async function POST(
         username: generatedUsername,
       },
       usedExistingAccount: !temporaryPassword,
-      temporaryPassword,
+      temporaryPassword: manualTemporaryPassword,
       onboarding: {
-        deliveryStatus: delivery.status,
-        recipient: onboardingEmail.recipient,
-        subject: onboardingEmail.subject,
-        body: onboardingEmail.textBody,
-        fullEmail: onboardingEmail.fullEmailText,
-        reason: delivery.status === "sent" ? null : delivery.reason,
+        deliveryStatus: emailResult.delivery.status,
+        recipient: emailResult.content.recipient,
+        subject: emailResult.content.subject,
+        body: emailResult.content.textBody,
+        fullEmail: emailResult.content.fullEmailText,
+        reason: emailResult.delivery.status === "sent" ? null : emailResult.delivery.reason,
       },
     });
   } catch (error) {

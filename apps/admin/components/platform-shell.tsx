@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Building2, ClipboardList, LayoutDashboard, LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { Building2, ClipboardList, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCircle2, X } from "lucide-react";
 import { ADMIN_PORTAL_NAME, APP_NAME, getFullName } from "@attendance/shared";
 import { LogoutButton } from "./logout-button";
 
@@ -102,6 +102,14 @@ function SidebarContent({
             <LogOut className="h-3.5 w-3.5" />
             Session
           </div>
+          <Link
+            href="/account"
+            onClick={onClose}
+            className="mb-2 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-[rgba(255,255,255,0.74)] transition hover:bg-white/5 hover:text-white"
+          >
+            <UserCircle2 className="h-4 w-4" />
+            Account
+          </Link>
           <LogoutButton />
         </div>
       </div>
@@ -173,6 +181,13 @@ export function PlatformShell({
               </div>
 
               <div className="ml-auto flex items-center gap-2.5">
+                <Link
+                  href="/account"
+                  className="hidden items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--foreground)] md:flex"
+                >
+                  <UserCircle2 className="h-3.5 w-3.5" />
+                  Account
+                </Link>
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-white">
                   {initials}
                 </div>

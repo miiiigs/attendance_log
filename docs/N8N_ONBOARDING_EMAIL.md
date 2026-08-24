@@ -1,4 +1,9 @@
-# n8n Onboarding Email
+# n8n Onboarding Email (Legacy)
+
+This document describes the pre-Resend onboarding workflow that existed before the
+focused V1 account release on August 24, 2026. The current onboarding and membership
+email path uses direct server-side Resend delivery instead of the n8n webhook described
+below.
 
 ## Purpose
 

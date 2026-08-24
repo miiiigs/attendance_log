@@ -14,8 +14,10 @@ Required server environment variables:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- optional `N8N_ONBOARDING_WEBHOOK_URL`
-- optional `N8N_ONBOARDING_WEBHOOK_SECRET`
+- `APP_BASE_URL`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+- optional `RESEND_FROM_NAME`
 
 ## Mobile
 
@@ -35,11 +37,23 @@ Required mobile environment variables:
 Provision a single Supabase project, run the committed SQL migrations, and seed the
 SCPPA organization + platform admin via `pnpm bootstrap:admin`.
 
-## Onboarding Email
+## Account Email + Recovery
 
-Automated onboarding email is optional via a self-hosted n8n webhook. Leave the n8n
-variables empty for the manual email fallback (the admin UI returns a ready-to-send
-subject/body).
+Resend is the transactional email provider for:
+
+- new organization-admin onboarding
+- new member onboarding
+- existing-user membership notification
+
+Password recovery continues to use Supabase Auth semantics. Production should route
+Supabase Auth email through Resend SMTP (or another approved SMTP relay) and allow:
+
+- `https://scppa-portal.vercel.app/reset-password`
+- local development reset URLs as needed
+- Vercel preview redirect URLs if previews need recovery testing
+
+If Resend or SMTP is unavailable, account provisioning still succeeds, but the admin UI
+falls back to an immediate manual email handoff for newly generated temporary passwords.
 
 ## Local Development Notes
 

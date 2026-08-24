@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdminApiContext } from "../../../../../../../lib/org-auth";
-import { generateTemporaryPassword } from "../../../../../../../lib/passwords";
 import {
-  attemptAutomatedOnboardingEmail,
-  buildOnboardingEmail,
+  sendExistingMembershipEmail,
+  sendOnboardingEmail,
 } from "../../../../../../../lib/server/onboarding-email";
+import { requireOrgAdminApiContext } from "../../../../../../../lib/org-auth";
+import { generateTemporaryPassword, isTemporaryPassword } from "../../../../../../../lib/passwords";
 import { createSupabaseServiceClient } from "../../../../../../../lib/supabase/service";
 
 export async function POST(
@@ -42,13 +42,40 @@ export async function POST(
     return NextResponse.json({ error: "Person not found." }, { status: 404 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { mode?: "retry" | "regenerate"; password?: string };
-  const nextPassword =
-    body.mode === "retry" && body.password && /^[A-Za-z0-9]{12}$/.test(body.password)
-      ? body.password
-      : generateTemporaryPassword();
+  const body = (await request.json().catch(() => ({}))) as {
+    mode?: "notify" | "retry" | "regenerate";
+    password?: string;
+  };
 
-  if (body.mode !== "retry" || nextPassword !== body.password) {
+  if (body.mode === "notify") {
+    const emailResult = await sendExistingMembershipEmail({
+      organizationName: organization.name,
+      organizationCode: organization.code,
+      firstName: person.first_name,
+      lastName: person.last_name,
+      email: person.email,
+      username: membership.username,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      username: membership.username,
+      temporaryPassword: null,
+      onboarding: {
+        deliveryStatus: emailResult.delivery.status,
+        recipient: emailResult.content.recipient,
+        subject: emailResult.content.subject,
+        body: emailResult.content.textBody,
+        fullEmail: emailResult.content.fullEmailText,
+        reason: emailResult.delivery.status === "sent" ? null : emailResult.delivery.reason,
+      },
+    });
+  }
+
+  const requestedPassword = body.mode === "retry" && body.password && isTemporaryPassword(body.password) ? body.password : null;
+  const nextPassword = requestedPassword ?? generateTemporaryPassword();
+
+  if (body.mode !== "retry" || nextPassword !== requestedPassword) {
     const { error: updateError } = await supabase.auth.admin.updateUserById(id, {
       password: nextPassword,
     });
@@ -58,7 +85,7 @@ export async function POST(
     }
   }
 
-  const onboardingEmail = buildOnboardingEmail({
+  const emailResult = await sendOnboardingEmail({
     organizationName: organization.name,
     organizationCode: organization.code,
     firstName: person.first_name,
@@ -68,28 +95,19 @@ export async function POST(
     temporaryPassword: nextPassword,
   });
 
-  const delivery = await attemptAutomatedOnboardingEmail({
-    organizationName: organization.name,
-    organizationCode: organization.code,
-    firstName: person.first_name,
-    lastName: person.last_name,
-    email: person.email,
-    username: membership.username,
-    temporaryPassword: nextPassword,
-    ...onboardingEmail,
-  });
+  const manualTemporaryPassword = emailResult.delivery.status === "sent" ? null : nextPassword;
 
   return NextResponse.json({
     ok: true,
     username: membership.username,
-    temporaryPassword: nextPassword,
+    temporaryPassword: manualTemporaryPassword,
     onboarding: {
-      deliveryStatus: delivery.status,
-      recipient: onboardingEmail.recipient,
-      subject: onboardingEmail.subject,
-      body: onboardingEmail.textBody,
-      fullEmail: onboardingEmail.fullEmailText,
-      reason: delivery.status === "sent" ? null : delivery.reason,
+      deliveryStatus: emailResult.delivery.status,
+      recipient: emailResult.content.recipient,
+      subject: emailResult.content.subject,
+      body: emailResult.content.textBody,
+      fullEmail: emailResult.content.fullEmailText,
+      reason: emailResult.delivery.status === "sent" ? null : emailResult.delivery.reason,
     },
   });
 }

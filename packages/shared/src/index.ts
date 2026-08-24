@@ -4,4 +4,5 @@ export * from "./schemas/auth";
 export * from "./schemas/person";
 export * from "./schemas/settings";
 export * from "./types/domain";
+export * from "./utils/account";
 export * from "./utils/attendance";

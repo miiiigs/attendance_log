@@ -372,11 +372,20 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Password</p>
-                      <p className="mt-1 font-mono">{feedback.temporaryPassword ?? "Existing Activity Log password"}</p>
+                      <p className="mt-1 font-mono">
+                        {feedback.usedExistingAccount
+                          ? "Existing Activity Log password"
+                          : feedback.temporaryPassword ?? "Delivered securely by email"}
+                      </p>
                     </div>
                     {feedback.usedExistingAccount ? (
                       <p className="md:col-span-2 text-sm text-[var(--muted)]">
                         Existing Activity Log account reused. No password reset was performed.
+                      </p>
+                    ) : feedback.temporaryPassword ? (
+                      <p className="md:col-span-2 text-sm text-[var(--muted)]">
+                        Temporary password exposure is limited to this immediate manual fallback because automated email delivery did
+                        not complete.
                       </p>
                     ) : null}
                   </div>

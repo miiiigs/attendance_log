@@ -73,13 +73,14 @@ the Expo app. In the local Supabase CLI stack, `service_role` lacks table grants
 default; the E2E setup grants them locally (this does not affect hosted projects, where
 `service_role` is privileged by default).
 
-## Onboarding Email Webhook
+## Transactional Email
 
-Automated onboarding email is optional and server-only:
+Transactional account email is server-only:
 
-- `N8N_ONBOARDING_WEBHOOK_URL` + `N8N_ONBOARDING_WEBHOOK_SECRET` (shared via the `X-Attendance-Webhook-Secret` header)
-- empty = manual email fallback returned to the administrator
-- plaintext temporary passwords remain in short-lived in-memory responses only
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, optional `RESEND_FROM_NAME`, and `APP_BASE_URL`
+- empty/missing configuration falls back to an immediate manual email handoff to the administrator
+- plaintext temporary passwords remain in short-lived in-memory responses only when manual fallback is necessary
+- `RESEND_API_KEY` must never reach browser or Expo bundles
 
 ## Platform Application Controls
 
@@ -90,6 +91,14 @@ Automated onboarding email is optional and server-only:
 - platform approval runs on trusted server code, creates the organization and admin
   membership first-class, reuses existing global users when safe, and treats onboarding
   email delivery as best-effort only
+
+## Password Recovery
+
+- forgot-password responses remain generic and do not reveal whether an account exists
+- authenticated password changes require the current password to be verified before the
+  global Auth password is updated
+- reset-password uses Supabase Auth recovery sessions rather than application-managed
+  reset tokens
 
 ## Known Limitation
 

@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requirePlatformAdminApiContext = vi.fn();
 const createSupabaseServerClient = vi.fn();
 const createSupabaseServiceClient = vi.fn();
-const buildOnboardingEmail = vi.fn();
-const attemptAutomatedOnboardingEmail = vi.fn();
+const sendOnboardingEmail = vi.fn();
+const sendExistingMembershipEmail = vi.fn();
 
 vi.mock("../../../../../../lib/auth", () => ({
   requirePlatformAdminApiContext,
@@ -19,8 +19,8 @@ vi.mock("../../../../../../lib/supabase/service", () => ({
 }));
 
 vi.mock("../../../../../../lib/server/onboarding-email", () => ({
-  buildOnboardingEmail,
-  attemptAutomatedOnboardingEmail,
+  sendOnboardingEmail,
+  sendExistingMembershipEmail,
 }));
 
 function createUserScopedSupabase(options?: {
@@ -168,14 +168,26 @@ describe("POST /api/platform/applications/[id]/approve", () => {
     requirePlatformAdminApiContext.mockResolvedValue({
       profile: { id: "platform-admin-1" },
     });
-    buildOnboardingEmail.mockReturnValue({
-      recipient: "owner@example.org",
-      subject: "Your Activity Log credentials",
-      textBody: "body",
-      htmlBody: "<p>body</p>",
-      fullEmailText: "To: owner@example.org\n\nbody",
+    sendOnboardingEmail.mockResolvedValue({
+      content: {
+        recipient: "owner@example.org",
+        subject: "Your Activity Log account is ready",
+        textBody: "body",
+        htmlBody: "<p>body</p>",
+        fullEmailText: "To: owner@example.org\n\nbody",
+      },
+      delivery: { status: "not_configured", reason: "Transactional email is not configured." },
     });
-    attemptAutomatedOnboardingEmail.mockResolvedValue({ status: "not_configured", reason: "Automated onboarding email is not configured." });
+    sendExistingMembershipEmail.mockResolvedValue({
+      content: {
+        recipient: "owner@example.org",
+        subject: "You've been added to North Valley Volunteers",
+        textBody: "body",
+        htmlBody: "<p>body</p>",
+        fullEmailText: "To: owner@example.org\n\nbody",
+      },
+      delivery: { status: "sent" },
+    });
   });
 
   async function post(payload: Record<string, unknown>) {
@@ -222,6 +234,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
     expect(body.administrator.username).toBe("202600001");
     expect(body.usedExistingAccount).toBe(false);
     expect(typeof body.temporaryPassword).toBe("string");
+    expect(sendOnboardingEmail).toHaveBeenCalledOnce();
     expect(serviceSupabase.createUser).toHaveBeenCalledOnce();
     expect(serviceSupabase.profileInsert).toHaveBeenCalledOnce();
     expect(userScopedSupabase.organizationMembershipsBuilder.insert).toHaveBeenCalledWith({
@@ -253,6 +266,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
     expect(response.status).toBe(200);
     expect(body.usedExistingAccount).toBe(true);
     expect(body.temporaryPassword).toBeNull();
+    expect(sendExistingMembershipEmail).toHaveBeenCalledOnce();
     expect(serviceSupabase.createUser).not.toHaveBeenCalled();
     expect(serviceSupabase.getUserById).toHaveBeenCalledWith("existing-user-1");
   });

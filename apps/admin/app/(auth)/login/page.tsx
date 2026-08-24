@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ADMIN_PORTAL_NAME, APP_NAME } from "@attendance/shared";
 import { LoginForm } from "../../../components/login-form";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
@@ -64,12 +65,19 @@ export default async function LoginPage() {
             </div>
 
             <LoginForm />
-            <p className="mt-4 text-center text-sm text-[var(--muted)]">
-              Need a new organization workspace?{" "}
-              <a href="/apply" className="font-semibold text-[var(--accent)]">
-                Submit an application
-              </a>
-            </p>
+
+            <section className="mt-5 rounded-[28px] border border-[var(--border)] bg-[linear-gradient(135deg,#fcfaf4_0%,#eef9f1_100%)] p-5 shadow-[0_14px_34px_rgba(22,24,29,0.06)]">
+              <p className="admin-eyebrow">Organization onboarding</p>
+              <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">
+                Represent a community or organization?
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                Apply for an Activity Log workspace to manage your people, activities, and attendance in one place.
+              </p>
+              <Link href="/apply" className="admin-button mt-4 inline-flex">
+                Apply for an organization workspace
+              </Link>
+            </section>
           </div>
         </section>
       </div>
