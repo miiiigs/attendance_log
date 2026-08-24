@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ADMIN_PORTAL_NAME, APP_NAME } from "@attendance/shared";
+import { ADMIN_PORTAL_NAME, APP_NAME, TAGLINE } from "@attendance/shared";
 import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -17,7 +17,7 @@ const monoFont = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: ADMIN_PORTAL_NAME,
-  description: `${APP_NAME} administration dashboard.`,
+  description: `${APP_NAME} — ${TAGLINE}`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { changeMobilePassword, requestPasswordReset } from "./account";
 
 vi.mock("./config", () => ({
-  getAdminAppUrl: () => "https://attendancelogger.vercel.app",
+  getAdminAppUrl: () => "https://qrlogph.vercel.app",
 }));
 
 describe("mobile account helpers", () => {

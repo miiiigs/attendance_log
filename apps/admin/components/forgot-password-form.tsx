@@ -54,7 +54,7 @@ export function ForgotPasswordForm() {
       </div>
 
       <p className="text-sm leading-7 text-[var(--muted)]">
-        Enter the email address associated with your Activity Log account and we&apos;ll send you a secure reset link.
+        Enter the email address associated with your QRLog account and we&apos;ll send you a secure reset link.
       </p>
 
       {error ? (

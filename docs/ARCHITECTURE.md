@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository is a pnpm monorepo implementing a multi-tenant Activity Log platform:
+This repository is a pnpm monorepo implementing a multi-tenant QRLog platform:
 
 ```text
 apps/admin      Next.js App Router (platform admin + organization consoles)

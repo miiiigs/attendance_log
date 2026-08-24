@@ -176,7 +176,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
     sendOnboardingEmail.mockResolvedValue({
       content: {
         recipient: "owner@example.org",
-        subject: "Your Activity Log account is ready",
+        subject: "Your QRLog account is ready",
         textBody: "body",
         htmlBody: "<p>body</p>",
         fullEmailText: "To: owner@example.org\n\nbody",

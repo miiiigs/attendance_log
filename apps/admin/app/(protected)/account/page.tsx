@@ -41,7 +41,7 @@ export default async function AccountPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="admin-eyebrow">Account</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">Your Activity Log account</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--foreground)]">Your QRLog account</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
               Review your account details and manage your password without changing your organization memberships or roles.
             </p>
@@ -93,7 +93,7 @@ export default async function AccountPage() {
               <p className="admin-eyebrow">Password</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">Change your password</h2>
               <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-                We verify your current password before applying a global password change for this Activity Log account.
+                We verify your current password before applying a global password change for this QRLog account.
               </p>
             </div>
 

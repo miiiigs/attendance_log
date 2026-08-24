@@ -1,6 +1,6 @@
 # AGENTS.md
 
-pnpm monorepo for the Activity Log platform: a multi-tenant, QR-backed activity-tracking
+pnpm monorepo for the QRLog platform: a multi-tenant, QR-backed activity-tracking
 system (Expo mobile + Next.js admin + Supabase). SCPPA is the first organization.
 
 ## Layout

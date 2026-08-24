@@ -132,7 +132,7 @@ export function QrDisplay({
         <div className="fixed inset-0 z-[80] flex flex-col bg-[var(--sidebar)] text-white">
           <div className="flex items-center justify-between px-6 py-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(255,255,255,0.4)]">Activity Log</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[rgba(255,255,255,0.4)]">QRLog</p>
               <p className="mt-1 text-base font-semibold text-white">{organizationName}</p>
               <p className="text-sm text-[rgba(255,255,255,0.6)]">{activityName}</p>
             </div>

@@ -71,7 +71,7 @@ export default function ActivityHomeScreen() {
     return (
       <MobileShell route="/" scroll={false} contentContainerStyle={styles.inactiveScreen}>
         <View style={styles.inactivePanel}>
-          <Text style={styles.inactiveEyebrow}>Activity Log</Text>
+          <Text style={styles.inactiveEyebrow}>QRLog</Text>
           <Text style={styles.inactiveTitle}>Account inactive</Text>
           <Text style={styles.inactiveSubtitle}>Activity scanning is disabled for inactive members.</Text>
           <Pressable style={styles.inactiveButton} onPress={() => signOut().catch(() => undefined)}>
@@ -95,7 +95,7 @@ export default function ActivityHomeScreen() {
             </View>
             <View style={styles.headerTitleWrap}>
               <Text style={styles.headerSystemName}>{organization.name}</Text>
-              <Text style={styles.headerOrganization}>{organization.code} · Activity Log</Text>
+              <Text style={styles.headerOrganization}>{organization.code} · QRLog</Text>
             </View>
           </View>
 

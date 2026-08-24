@@ -20,7 +20,7 @@ import { getAdminAppUrl } from "../../lib/config";
 import type { LoginContextPayload } from "../../providers/auth-provider";
 import { useAuth } from "../../providers/auth-provider";
 
-const CONNECTION_ERROR = "Unable to connect to Activity Log. Check your internet connection and try again.";
+const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
 const GENERIC_ERROR = "Invalid organization code, username, or password.";
 
 interface LoginResponse {
@@ -139,10 +139,10 @@ export default function LoginScreen() {
         >
           <View style={styles.brandBlock}>
             <View style={styles.brandMark}>
-              <Text style={styles.brandMarkText}>AL</Text>
+              <Text style={styles.brandMarkText}>QR</Text>
             </View>
-            <Text style={styles.brandTitle}>Activity Log</Text>
-            <Text style={styles.brandSubtitle}>Sign in with your organization to record activities.</Text>
+            <Text style={styles.brandTitle}>QRLog</Text>
+            <Text style={styles.brandSubtitle}>Scan. Log. Done.</Text>
           </View>
 
           <View style={styles.form}>
