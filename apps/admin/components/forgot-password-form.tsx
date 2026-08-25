@@ -4,6 +4,7 @@ import { forgotPasswordSchema } from "@attendance/shared";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +76,15 @@ export function ForgotPasswordForm() {
         <Link href="/login" className="admin-button-secondary">
           Back to login
         </Link>
-        <button type="submit" disabled={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-          {loading ? "Sending..." : "Send Reset Instructions"}
+        <button type="submit" disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+          {loading ? (
+            <>
+              <ButtonSpinner />
+              Sending...
+            </>
+          ) : (
+            "Send Reset Instructions"
+          )}
         </button>
       </div>
     </form>

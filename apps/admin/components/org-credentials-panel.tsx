@@ -2,6 +2,7 @@
 
 import { Copy, Key, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 interface CredentialsResult {
   username: string;
@@ -153,9 +154,10 @@ export function OrgCredentialsPanel({
               type="button"
               onClick={() => handleResendCredentials(credentials.temporaryPassword ? "retry" : "notify").catch(() => undefined)}
               disabled={loading}
+              aria-busy={loading}
               className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <RefreshCw className="h-4 w-4" />
+              {loading ? <ButtonSpinner /> : <RefreshCw className="h-4 w-4" />}
               {loading ? "Retrying..." : "Retry Email"}
             </button>
           ) : null}
@@ -166,18 +168,20 @@ export function OrgCredentialsPanel({
           type="button"
           onClick={() => handleResendCredentials("notify").catch(() => undefined)}
           disabled={loading}
+          aria-busy={loading}
           className="admin-button-secondary disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <RefreshCw className="h-4 w-4" />
+          {loading && lastMode === "notify" ? <ButtonSpinner /> : <RefreshCw className="h-4 w-4" />}
           {loading && lastMode === "notify" ? "Sending..." : "Send Sign-In Email"}
         </button>
         <button
           type="button"
           onClick={() => handleResendCredentials("regenerate").catch(() => undefined)}
           disabled={loading}
+          aria-busy={loading}
           className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <Key className="h-4 w-4" />
+          {loading && lastMode !== "notify" ? <ButtonSpinner /> : <Key className="h-4 w-4" />}
           {loading && lastMode !== "notify" ? "Generating..." : "Generate New Password"}
         </button>
       </div>

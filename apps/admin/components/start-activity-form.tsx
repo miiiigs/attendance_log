@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Play, Zap } from "lucide-react";
+import { ButtonSpinner } from "./button-spinner";
 
 export function StartActivityForm({ slug }: { slug: string }) {
   const router = useRouter();
@@ -63,8 +64,8 @@ export function StartActivityForm({ slug }: { slug: string }) {
         <p className="rounded-2xl border border-[#fecaca] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{error}</p>
       ) : null}
 
-      <button type="submit" data-testid="start-activity-submit" disabled={loading} className="admin-button w-full disabled:cursor-not-allowed disabled:opacity-70">
-        <Zap className="h-4 w-4" />
+      <button type="submit" data-testid="start-activity-submit" disabled={loading} aria-busy={loading} className="admin-button w-full disabled:cursor-not-allowed disabled:opacity-70">
+        {loading ? <ButtonSpinner /> : <Zap className="h-4 w-4" />}
         {loading ? "Starting..." : "Start Activity"}
       </button>
 

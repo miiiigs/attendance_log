@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/browser";
+import { ButtonSpinner } from "./button-spinner";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -179,9 +180,17 @@ export function ResetPasswordForm() {
       <button
         type="submit"
         disabled={!ready || submitting}
+        aria-busy={submitting}
         className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {submitting ? "Updating..." : "Reset Password"}
+        {submitting ? (
+          <>
+            <ButtonSpinner />
+            Updating...
+          </>
+        ) : (
+          "Reset Password"
+        )}
       </button>
     </form>
   );

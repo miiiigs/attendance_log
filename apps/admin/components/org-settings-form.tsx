@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Building2, Info, Save } from "lucide-react";
+import { ButtonSpinner } from "./button-spinner";
 
 export function OrgSettingsForm({
   slug,
@@ -96,8 +97,8 @@ export function OrgSettingsForm({
       {success ? <p className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent)]">{success}</p> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-          <Save className="h-4 w-4" />
+        <button type="submit" disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+          {loading ? <ButtonSpinner /> : <Save className="h-4 w-4" />}
           {loading ? "Saving..." : "Save settings"}
         </button>
         <p className="text-xs text-[var(--muted)]">Changes take effect immediately after a successful save.</p>

@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { verifyPasswordForEmail } from "../lib/supabase/verify-password";
 import { createSupabaseBrowserClient } from "../lib/supabase/browser";
+import { ButtonSpinner } from "./button-spinner";
 
 export function AccountPasswordForm() {
   const [error, setError] = useState<string | null>(null);
@@ -85,8 +86,15 @@ export function AccountPasswordForm() {
         </div>
       ) : null}
 
-      <button type="submit" disabled={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-        {loading ? "Updating..." : "Change Password"}
+      <button type="submit" disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+        {loading ? (
+          <>
+            <ButtonSpinner />
+            Updating...
+          </>
+        ) : (
+          "Change Password"
+        )}
       </button>
     </form>
   );

@@ -4,16 +4,7 @@ import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createSupabaseBrowserClient } from "../lib/supabase/browser";
-
-function normalizeAdminIdentifier(identifier: string) {
-  const trimmed = identifier.trim().toLowerCase();
-  if (!trimmed) {
-    return "";
-  }
-
-  return trimmed.includes("@") ? trimmed : `${trimmed}@attendance.local`;
-}
+import { ButtonSpinner } from "./button-spinner";
 
 export function LoginForm() {
   const router = useRouter();
@@ -22,26 +13,29 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(formData: FormData) {
-    const identifier = String(formData.get("identifier") ?? "");
+    const identifier = String(formData.get("identifier") ?? "").trim();
     const password = String(formData.get("password") ?? "");
-    const email = normalizeAdminIdentifier(identifier);
 
-    if (!email || password.length < 1) {
-      setError("Enter your username and password.");
+    if (!identifier || password.length < 1) {
+      setError("Enter your username or email and password.");
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ identifier, password }),
     });
 
-    if (loginError) {
-      setError(loginError.message);
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      setError(result?.error ?? "Invalid username/email or password.");
       setLoading(false);
       return;
     }
@@ -57,7 +51,7 @@ export function LoginForm() {
     >
       <div>
         <label className="admin-field-label" htmlFor="identifier">
-          Username
+          Username or Email
         </label>
         <input
           id="identifier"
@@ -65,7 +59,7 @@ export function LoginForm() {
           type="text"
           autoComplete="username"
           className="admin-input"
-          placeholder="user"
+          placeholder="SCPPA_admin_1 or name@example.com"
         />
       </div>
 
@@ -108,9 +102,17 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
+        aria-busy={loading}
         className="admin-button mt-2 w-full disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {loading ? "Signing in..." : "Sign In"}
+        {loading ? (
+          <>
+            <ButtonSpinner />
+            Signing in...
+          </>
+        ) : (
+          "Sign In"
+        )}
       </button>
     </form>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 type SubmissionState =
   | { kind: "idle" }
@@ -128,8 +129,15 @@ export function ApplicationForm() {
           <p className="admin-inline-note">
             Submission creates a review request only. Your organization will be activated after manual platform approval.
           </p>
-          <button type="submit" disabled={submitting} className="admin-button min-w-[190px]">
-            {submitting ? "Submitting..." : "Submit Application"}
+          <button type="submit" disabled={submitting} aria-busy={submitting} className="admin-button min-w-[190px]">
+            {submitting ? (
+              <>
+                <ButtonSpinner />
+                Submitting...
+              </>
+            ) : (
+              "Submit Application"
+            )}
           </button>
         </div>
       </form>
