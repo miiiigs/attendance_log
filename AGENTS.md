@@ -47,7 +47,7 @@ pnpm e2e:install               # download Playwright chromium once
 ## Auth model (easy to get wrong)
 
 - Mobile login identity is **organization code + membership username + password** (`POST /api/auth/mobile-login`). The server resolves organization → membership → global profile → the actual Auth email via `auth.admin.getUserById` → password grant. `profiles.username` is legacy and NOT login authority.
-- Admin login is username → derived auth email `{username}@attendance.local`.
+- Admin login accepts **membership username OR email** (`POST /api/auth/login`). Non-email identifiers are resolved server-side (membership username → global Auth email) before the password grant; email identifiers authenticate directly. No `@attendance.local` fallback.
 - The same global Auth user can be a member of multiple organizations; membership usernames are organization-scoped and may repeat across organizations.
 - After renaming/creating profiles, run `pnpm sync:auth-usernames` to keep auth emails aligned.
 

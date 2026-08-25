@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Copy, Key, RefreshCw } from "lucide-react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 interface PersonFormProps {
   mode: "create" | "edit";
@@ -237,7 +238,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
               disabled={loading}
               className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <RefreshCw className="h-4 w-4" />
+              {loading ? <ButtonSpinner /> : <RefreshCw className="h-4 w-4" />}
               {loading ? "Retrying..." : "Retry Email"}
             </button>
           ) : null}
@@ -299,9 +300,19 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
         <button
           type="submit"
           disabled={loading}
+          aria-busy={loading}
           className="admin-button disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {loading ? "Saving..." : mode === "create" ? "Create Person" : "Save Changes"}
+          {loading ? (
+            <>
+              <ButtonSpinner />
+              Saving...
+            </>
+          ) : mode === "create" ? (
+            "Create Person"
+          ) : (
+            "Save Changes"
+          )}
         </button>
       </div>
     </form>

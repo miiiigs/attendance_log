@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 export function OrganizationStatusManager({
   organizationId,
@@ -56,16 +57,32 @@ export function OrganizationStatusManager({
           className="admin-button-secondary"
           onClick={() => updateStatus("active")}
           disabled={currentStatus === "active" || pending !== null}
+          aria-busy={pending === "active"}
         >
-          {pending === "active" ? "Reactivating..." : "Reactivate"}
+          {pending === "active" ? (
+            <>
+              <ButtonSpinner />
+              Reactivating...
+            </>
+          ) : (
+            "Reactivate"
+          )}
         </button>
         <button
           type="button"
           className="admin-button-warning"
           onClick={() => updateStatus("suspended")}
           disabled={currentStatus === "suspended" || pending !== null}
+          aria-busy={pending === "suspended"}
         >
-          {pending === "suspended" ? "Suspending..." : "Suspend"}
+          {pending === "suspended" ? (
+            <>
+              <ButtonSpinner />
+              Suspending...
+            </>
+          ) : (
+            "Suspend"
+          )}
         </button>
       </div>
 

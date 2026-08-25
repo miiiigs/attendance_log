@@ -4,6 +4,7 @@ import { personCreateSchema } from "@attendance/shared";
 import { CheckCircle2, Key, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ButtonSpinner } from "./button-spinner";
 
 interface AdminResult {
   mode: "created" | "added" | "promoted";
@@ -186,8 +187,15 @@ export function AddOrganizationAdmin({ organizationId }: { organizationId: strin
         >
           Cancel
         </button>
-        <button type="submit" disabled={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-          {loading ? "Adding..." : "Add Organization Admin"}
+        <button type="submit" disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+          {loading ? (
+            <>
+              <ButtonSpinner />
+              Creating...
+            </>
+          ) : (
+            "Add Organization Admin"
+          )}
         </button>
       </div>
     </form>

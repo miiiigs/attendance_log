@@ -3,6 +3,7 @@
 import { DEFAULT_TIMEZONE } from "@attendance/shared";
 import { useState } from "react";
 import { normalizeOrganizationCode } from "../lib/organizations";
+import { ButtonSpinner } from "./button-spinner";
 
 type ApplicationItem = {
   id: string;
@@ -261,8 +262,15 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                   <button type="button" className="admin-button-secondary" onClick={() => setActiveId(isOpen ? null : application.id)}>
                     {isOpen ? "Hide Review" : "Review"}
                   </button>
-                  <button type="button" className="admin-button-danger" onClick={() => handleReject(application.id)} disabled={isSubmitting}>
-                    {isSubmitting ? "Working..." : "Reject"}
+                  <button type="button" className="admin-button-danger" onClick={() => handleReject(application.id)} disabled={isSubmitting} aria-busy={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <ButtonSpinner />
+                        Rejecting...
+                      </>
+                    ) : (
+                      "Reject"
+                    )}
                   </button>
                 </div>
               ) : null}
@@ -339,8 +347,15 @@ export function ApplicationReviewManager({ applications }: { applications: Appli
                   />
                 </div>
                 <div className="md:col-span-2 flex justify-end">
-                  <button type="button" className="admin-button" onClick={() => handleApprove(application.id)} disabled={isSubmitting}>
-                    {isSubmitting ? "Approving..." : "Approve Organization"}
+                  <button type="button" className="admin-button" onClick={() => handleApprove(application.id)} disabled={isSubmitting} aria-busy={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <ButtonSpinner />
+                        Approving...
+                      </>
+                    ) : (
+                      "Approve Organization"
+                    )}
                   </button>
                 </div>
               </div>

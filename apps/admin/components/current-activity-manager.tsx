@@ -6,6 +6,7 @@ import { AlertTriangle, CalendarClock, QrCode, ShieldOff, Square } from "lucide-
 import { formatDateTimeInTimeZone } from "@attendance/shared";
 import { ActivityPeopleTable } from "./activity-people-table";
 import { QrDisplay } from "./qr-display";
+import { ButtonSpinner } from "./button-spinner";
 import type { ActivityPersonRow } from "../lib/data/org";
 
 interface QrSession {
@@ -162,8 +163,8 @@ export function CurrentActivityManager({
                       : "Generate a QR to let members start logging. Removing a QR does not end the activity."}
                   </p>
                 </div>
-                <button type="button" onClick={generateQr} disabled={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-                  <QrCode className="h-4 w-4" />
+                <button type="button" onClick={generateQr} disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+                  {loading ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
                   {loading ? "Generating..." : hasActiveQr ? "Generate Replacement" : "Generate New QR"}
                 </button>
               </div>
@@ -171,9 +172,9 @@ export function CurrentActivityManager({
 
             {qr ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={generateQr} disabled={loading} className="admin-button-secondary">
-                  <QrCode className="h-4 w-4" />
-                  Generate Replacement
+                <button type="button" onClick={generateQr} disabled={loading} aria-busy={loading} className="admin-button-secondary disabled:cursor-not-allowed disabled:opacity-70">
+                  {loading ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
+                  {loading ? "Generating..." : "Generate Replacement"}
                 </button>
                 <button
                   type="button"
@@ -183,10 +184,11 @@ export function CurrentActivityManager({
                     }
                   }}
                   disabled={loading}
+                  aria-busy={loading}
                   className="admin-button-warning disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <ShieldOff className="h-4 w-4" />
-                  Remove QR
+                  {loading ? <ButtonSpinner /> : <ShieldOff className="h-4 w-4" />}
+                  {loading ? "Removing..." : "Remove QR"}
                 </button>
               </div>
             ) : null}
@@ -223,8 +225,15 @@ export function CurrentActivityManager({
                 <button type="button" onClick={() => setConfirmEnd(false)} disabled={loading} className="admin-button-secondary">
                   Cancel
                 </button>
-                <button type="button" data-testid="end-activity-confirm" onClick={endActivity} disabled={loading} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
-                  {loading ? "Ending..." : "End Activity"}
+                <button type="button" data-testid="end-activity-confirm" onClick={endActivity} disabled={loading} aria-busy={loading} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
+                  {loading ? (
+                    <>
+                      <ButtonSpinner />
+                      Ending...
+                    </>
+                  ) : (
+                    "End Activity"
+                  )}
                 </button>
               </div>
             </div>
