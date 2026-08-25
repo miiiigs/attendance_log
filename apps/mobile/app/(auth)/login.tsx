@@ -90,7 +90,15 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!response.ok || !result.access_token || !result.refresh_token || !result.organization || !result.membership) {
+    if (
+      !response.ok ||
+      !result.access_token ||
+      !result.refresh_token ||
+      !result.organization ||
+      !result.membership ||
+      !result.profile ||
+      typeof result.profile.status !== "string"
+    ) {
       setError(result.error ?? GENERIC_ERROR);
       setLoading(false);
       return;
@@ -110,13 +118,7 @@ export default function LoginScreen() {
     await applyLoginContext({
       organization: result.organization,
       membership: result.membership,
-      profile: result.profile ?? {
-        id: data.session.user.id,
-        firstName: "",
-        lastName: "",
-        email: data.session.user.email ?? "",
-        status: "active",
-      },
+      profile: result.profile,
     });
 
     setLoading(false);

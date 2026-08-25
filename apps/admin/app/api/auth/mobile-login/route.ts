@@ -124,6 +124,7 @@ export async function POST(request: Request) {
       firstName: profile.first_name,
       lastName: profile.last_name,
       email: profile.email,
+      status: profile.status,
     },
   });
 }
