@@ -16,9 +16,10 @@
 - `UNIQUE(organization_id, user_id)` and `UNIQUE(organization_id, username)`
 - the same username may exist in different organizations
 
-### `organization_username_counters`
-- per `(organization_id, year)` atomic counters for 9-digit usernames (`YYYYNNNNN`)
-- generation uses an atomic `INSERT ... ON CONFLICT ... RETURNING`; no application-side increments
+### `organization_membership_username_counters`
+- per `(organization_id, counter_type)` atomic counters for role-aware usernames
+- `counter_type` uses the `organization_membership_role` enum (`organization_admin` / `member`), so admin and member sequences are independent and never cross-consume
+- generation uses an atomic `INSERT ... ON CONFLICT ... RETURNING`; no application-side increments, and sequences never reset or reuse numbers
 
 ### `activities`
 - one row per Activity; `UNIQUE(organization_id) WHERE status = 'active'` enforces one active Activity per organization at the database level
@@ -60,8 +61,11 @@ historical rows scoped by `organization_id`.
 
 ## Username Generation
 
-- `generate_next_membership_username(organization_id, year)` returns the next `YYYYNNNNN` for that organization + year atomically.
-- `generate_next_username(year)` delegates to the caller's default organization (legacy compatibility).
+- `generate_membership_username(organization_id, role)` returns the next role-aware username for that organization atomically:
+  - `organization_admin` -> `<ORGCODE>_admin_<SEQUENCE>` (no padding), platform-admin only
+  - `member` -> `<ORGCODE>_<SEQUENCE>` (minimum 4-digit padding), org-admin or platform-admin
+- The organization code is resolved from `organizations.code` (canonical uppercase); it is never accepted from client input.
+- The deprecated `generate_next_membership_username`/`generate_next_username` year-based generators were removed; new usernames never depend on the calendar year.
 
 ## RLS Summary
 

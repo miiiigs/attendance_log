@@ -260,30 +260,30 @@ select is(
 );
 
 -- ============================================================================
--- Organization-scoped username generation
+-- Role-aware organization-scoped username generation
 -- ============================================================================
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA (platform admin)
 
-select generate_next_membership_username('aaaaaaa1-0000-0000-0000-000000000001') as username_a1 \gset
-select generate_next_membership_username('aaaaaaa1-0000-0000-0000-000000000001') as username_a2 \gset
+select generate_membership_username('aaaaaaa1-0000-0000-0000-000000000001', 'member') as username_a1 \gset
+select generate_membership_username('aaaaaaa1-0000-0000-0000-000000000001', 'member') as username_a2 \gset
 
 select ok(
   :'username_a1' <> :'username_a2',
   'consecutive usernames within one organization are unique'
 );
 
-select generate_next_membership_username('aaaaaaa2-0000-0000-0000-000000000002') as username_b1 \gset
+select generate_membership_username('aaaaaaa2-0000-0000-0000-000000000002', 'member') as username_b1 \gset
 
 select is(
-  :'username_a1'::text,
   :'username_b1'::text,
-  'different organizations may generate the same username'
+  'ORGB_0001',
+  'each organization starts its member sequence at one with its own code'
 );
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', true); -- memberA
 
 select throws_ok(
-  $$ select * from public.generate_next_membership_username('aaaaaaa1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.generate_membership_username('aaaaaaa1-0000-0000-0000-000000000001', 'member'); $$,
   'P0001',
   'Only organization administrators can generate usernames.',
   'plain member cannot generate organization usernames'

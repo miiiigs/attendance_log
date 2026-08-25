@@ -92,7 +92,7 @@ function createUserScopedSupabase(options?: {
 
       throw new Error(`Unexpected table ${table}`);
     }),
-    rpc: vi.fn().mockResolvedValue({ data: "202600001", error: null }),
+    rpc: vi.fn().mockResolvedValue({ data: "NVV_admin_1", error: null }),
     approvedApplicationBuilder,
     organizationMembershipsBuilder,
   };
@@ -235,7 +235,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
 
     expect(response.status).toBe(200);
     expect(body.organization.code).toBe("NVV");
-    expect(body.administrator.username).toBe("202600001");
+    expect(body.administrator.username).toBe("NVV_admin_1");
     expect(body.usedExistingAccount).toBe(false);
     expect(typeof body.temporaryPassword).toBe("string");
     expect(sendOnboardingEmail).toHaveBeenCalledOnce();
@@ -244,7 +244,7 @@ describe("POST /api/platform/applications/[id]/approve", () => {
     expect(userScopedSupabase.organizationMembershipsBuilder.insert).toHaveBeenCalledWith({
       organization_id: "organization-1",
       user_id: "new-user-1",
-      username: "202600001",
+      username: "NVV_admin_1",
       role: "organization_admin",
       status: "active",
     });

@@ -38,7 +38,7 @@ describe("onboarding-email", () => {
       firstName: "Juan",
       lastName: "Dela Cruz",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_0001",
       temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
@@ -47,7 +47,7 @@ describe("onboarding-email", () => {
     expect(email.subject).toBe("Your QRLog account is ready");
     expect(email.textBody).toContain("Welcome Juan,");
     expect(email.textBody).toContain("ABCCO");
-    expect(email.textBody).toContain("202600001");
+    expect(email.textBody).toContain("SCPPA_0001");
     expect(email.textBody).toContain("TEMP_PASSWORD_FOR_TESTS");
     expect(email.textBody).toContain("https://qrlogph.vercel.app/login");
     expect(email.textBody).toContain("Please change your password after your first login.");
@@ -58,7 +58,7 @@ describe("onboarding-email", () => {
     const email = buildExistingMembershipEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_0001",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
     });
@@ -74,7 +74,7 @@ describe("onboarding-email", () => {
     const email = buildAdminOnboardingEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600003",
+      username: "SCPPA_admin_1",
       temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
@@ -83,7 +83,7 @@ describe("onboarding-email", () => {
     expect(email.subject).toBe("Your QRLog administrator account is ready");
     expect(email.textBody).toContain("administrator access is ready");
     expect(email.textBody).toContain("ABCCO");
-    expect(email.textBody).toContain("202600003");
+    expect(email.textBody).toContain("SCPPA_admin_1");
     expect(email.textBody).toContain("TEMP_PASSWORD_FOR_TESTS");
     expect(email.textBody).toContain("https://qrlogph.vercel.app/login");
   });
@@ -93,7 +93,7 @@ describe("onboarding-email", () => {
     const email = buildExistingAdminEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600003",
+      username: "SCPPA_admin_1",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
     });
@@ -110,7 +110,7 @@ describe("onboarding-email", () => {
     const email = buildAdminPromotionEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_admin_3",
       organizationName: "ABC Company",
       organizationCode: "ABCCO",
     });
@@ -129,7 +129,7 @@ describe("onboarding-email", () => {
     const result = await sendOnboardingEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_0001",
       temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
       organizationName: "Example Company",
       organizationCode: "EXAMPLE",
@@ -153,7 +153,7 @@ describe("onboarding-email", () => {
     const result = await sendOnboardingEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_0001",
       temporaryPassword: "TEMP_PASSWORD_FOR_TESTS",
     });
 
@@ -174,7 +174,7 @@ describe("onboarding-email", () => {
     const result = await sendExistingMembershipEmail({
       firstName: "Juan",
       email: "juan@example.com",
-      username: "202600001",
+      username: "SCPPA_0001",
       organizationName: "Example Company",
       organizationCode: "EXAMPLE",
     });

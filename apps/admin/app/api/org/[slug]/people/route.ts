@@ -28,8 +28,9 @@ export async function POST(
   const organization = adminContext.organization;
 
   const userScopedSupabase = adminContext.supabase;
-  const { data: username, error: usernameError } = await userScopedSupabase.rpc("generate_next_membership_username", {
+  const { data: username, error: usernameError } = await userScopedSupabase.rpc("generate_membership_username", {
     target_organization_id: organizationId,
+    target_role: "member",
   });
 
   if (usernameError || typeof username !== "string") {

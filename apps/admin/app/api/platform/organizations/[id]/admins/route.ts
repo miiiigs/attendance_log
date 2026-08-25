@@ -129,10 +129,21 @@ export async function POST(
         );
       }
 
-      // CASE C — promote an existing member (role only; preserve membership id, username, history).
+      // CASE C — promote an existing member. Assign the next administrator
+      // username and update role + username atomically (preserve membership id,
+      // user id, password, and all history).
+      const { data: adminUsername, error: adminUsernameError } = await userScopedSupabase.rpc("generate_membership_username", {
+        target_organization_id: id,
+        target_role: "organization_admin",
+      });
+
+      if (adminUsernameError || typeof adminUsername !== "string") {
+        return NextResponse.json({ error: adminUsernameError?.message ?? "Unable to generate administrator username." }, { status: 400 });
+      }
+
       const { data: updatedMembership, error: updateError } = await serviceSupabase
         .from("organization_memberships")
-        .update({ role: "organization_admin" })
+        .update({ role: "organization_admin", username: adminUsername })
         .eq("id", existingMembership.id)
         .select("id, username, role, status")
         .maybeSingle();
@@ -145,7 +156,7 @@ export async function POST(
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
         email,
-        username: existingMembership.username,
+        username: adminUsername,
         organizationName: organization.name,
         organizationCode: organization.code,
       });
@@ -153,7 +164,7 @@ export async function POST(
       return NextResponse.json(
         buildResponse(
           "promoted",
-          { userId: existingProfile.id, ...parsed.data, email, username: existingMembership.username },
+          { userId: existingProfile.id, ...parsed.data, email, username: adminUsername },
           null,
           emailResult,
         ),
@@ -161,8 +172,9 @@ export async function POST(
     }
   }
 
-  const { data: username, error: usernameError } = await userScopedSupabase.rpc("generate_next_membership_username", {
+  const { data: username, error: usernameError } = await userScopedSupabase.rpc("generate_membership_username", {
     target_organization_id: id,
+    target_role: "organization_admin",
   });
 
   if (usernameError || typeof username !== "string") {

@@ -128,8 +128,9 @@ export async function POST(
 
     createdOrganizationId = organization.id;
 
-    const { data: generatedUsername, error: usernameError } = await userScopedSupabase.rpc("generate_next_membership_username", {
+    const { data: generatedUsername, error: usernameError } = await userScopedSupabase.rpc("generate_membership_username", {
       target_organization_id: organization.id,
+      target_role: "organization_admin",
     });
 
     if (usernameError || typeof generatedUsername !== "string") {
