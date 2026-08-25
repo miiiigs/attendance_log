@@ -32,14 +32,14 @@ test.describe.serial("Platform admin organization approval flow", () => {
 
     await expect(applicationCard).toContainText("Organization approved.");
     await expect(applicationCard).toContainText(e2ePlatformApplication.organizationCode);
-    await expect(applicationCard).toContainText("202600001");
+    await expect(applicationCard).toContainText("E2EC_admin_1");
 
     await page.goto(`/admin/organizations?status=active&query=${encodeURIComponent(e2ePlatformApplication.organizationCode)}`);
     await expect(page.getByText(e2ePlatformApplication.organizationName)).toBeVisible();
     await page.getByRole("link", { name: "View" }).first().click();
 
     await expect(page.getByRole("heading", { name: e2ePlatformApplication.organizationName })).toBeVisible();
-    await expect(page.getByText("202600001")).toBeVisible();
+    await expect(page.getByText("E2EC_admin_1")).toBeVisible();
 
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Suspend" }).first().click();

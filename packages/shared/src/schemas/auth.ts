@@ -21,7 +21,7 @@ export const organizationLoginSchema = z.object({
     .min(1, "Enter your organization code.")
     .max(20, "Organization code is too long.")
     .transform((value) => value.toUpperCase()),
-  username: z.string().trim().min(1, "Enter your username.").max(32, "Username is too long."),
+  username: z.string().trim().min(1, "Enter your username.").max(64, "Username is too long."),
   password: z.string().min(8, "Password must be at least 8 characters."),
 });
 

@@ -104,7 +104,7 @@ activity; the scanner submits the raw QR token to `scan_activity`.
 ## Database
 
 Core tables: `profiles`, `organizations`, `organization_memberships`,
-`organization_username_counters`, `activities`, `activity_logs`, `activity_scans`,
+`organization_membership_username_counters`, `activities`, `activity_logs`, `activity_scans`,
 `qr_sessions`, and legacy `attendance_records`/`attendance_scans`. See `DATABASE.md`.
 
 ## Timezone Handling

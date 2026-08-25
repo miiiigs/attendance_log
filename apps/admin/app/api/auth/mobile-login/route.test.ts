@@ -28,7 +28,7 @@ function buildSupabaseMock(overrides?: {
     {
       id: "m-a",
       user_id: "u-1",
-      username: "202600001",
+      username: "ORGA_0001",
       role: "member",
       status: "active",
       organization_id: ORG_A,
@@ -36,7 +36,7 @@ function buildSupabaseMock(overrides?: {
     {
       id: "m-b",
       user_id: "u-1",
-      username: "202600074",
+      username: "ORGB_0001",
       role: "member",
       status: "active",
       organization_id: ORG_B,
@@ -117,7 +117,7 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "orga",
-      username: "202600001",
+      username: "ORGA_0001",
       password: "password123",
     });
 
@@ -125,7 +125,7 @@ describe("POST /api/auth/mobile-login", () => {
     const body = await response.json();
     expect(body.access_token).toBe("access-token");
     expect(body.organization).toMatchObject({ id: ORG_A, code: "ORGA", slug: "org-a" });
-    expect(body.membership).toMatchObject({ id: "m-a", username: "202600001" });
+    expect(body.membership).toMatchObject({ id: "m-a", username: "ORGA_0001" });
     expect(body.profile).toMatchObject({ id: "u-1", email: "juan@example.com" });
   });
 
@@ -134,13 +134,13 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "orga",
-      username: "202600001",
+      username: "ORGA_0001",
       password: "password123",
     });
 
     const body = await response.json();
     expect(body.organization.id).toBe(ORG_A);
-    expect(body.membership.username).toBe("202600001");
+    expect(body.membership.username).toBe("ORGA_0001");
     expect(body.membership.userId).toBe("u-1");
   });
 
@@ -149,7 +149,7 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "NOPE",
-      username: "202600001",
+      username: "ORGA_0001",
       password: "password123",
     });
 
@@ -162,7 +162,7 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "orgb",
-      username: "202600074",
+      username: "ORGB_0001",
       password: "password123",
     });
 
@@ -176,7 +176,7 @@ describe("POST /api/auth/mobile-login", () => {
         {
           id: "m-a",
           user_id: "u-1",
-          username: "202600001",
+          username: "ORGA_0001",
           role: "member",
           status: "inactive",
           organization_id: ORG_A,
@@ -187,7 +187,7 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "orga",
-      username: "202600001",
+      username: "ORGA_0001",
       password: "password123",
     });
 
@@ -204,7 +204,7 @@ describe("POST /api/auth/mobile-login", () => {
 
     const response = await post({
       organizationCode: "orga",
-      username: "202600001",
+      username: "ORGA_0001",
       password: "wrong-password",
     });
 

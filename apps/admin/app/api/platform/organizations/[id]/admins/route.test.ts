@@ -60,7 +60,7 @@ interface ServiceOptions {
 
 function createUserScopedSupabase() {
   return {
-    rpc: vi.fn().mockResolvedValue({ data: "202600003", error: null }),
+    rpc: vi.fn().mockResolvedValue({ data: "SCPPA_admin_1", error: null }),
   };
 }
 
@@ -75,9 +75,16 @@ function createServiceSupabase(options: ServiceOptions = {}) {
   const profileDelete = vi.fn().mockResolvedValue({ error: null });
   const membershipInsert = vi.fn().mockResolvedValue({ error: options.membershipInsertError ?? null });
   const membershipUpdateMaybeSingle = vi.fn().mockResolvedValue({
-    data: { id: "membership-1", username: "202600001", role: "organization_admin", status: "active" },
+    data: { id: "membership-1", username: "SCPPA_admin_1", role: "organization_admin", status: "active" },
     error: null,
   });
+  const membershipUpdate = vi.fn(() => ({
+    eq: vi.fn(() => ({
+      select: vi.fn(() => ({
+        maybeSingle: membershipUpdateMaybeSingle,
+      })),
+    })),
+  }));
   const createUser = vi.fn().mockResolvedValue({ data: { user: { id: "new-user-1" } }, error: null });
   const deleteUser = vi.fn().mockResolvedValue({ error: null });
 
@@ -107,13 +114,7 @@ function createServiceSupabase(options: ServiceOptions = {}) {
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: existingMembership, error: null }),
           insert: membershipInsert,
-          update: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                maybeSingle: membershipUpdateMaybeSingle,
-              })),
-            })),
-          })),
+          update: membershipUpdate,
         };
       }
 
@@ -128,6 +129,7 @@ function createServiceSupabase(options: ServiceOptions = {}) {
     profileInsert,
     profileDelete,
     membershipInsert,
+    membershipUpdate,
     membershipUpdateMaybeSingle,
     createUser,
     deleteUser,
@@ -250,10 +252,11 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
     expect(response.status).toBe(200);
     expect(body.mode).toBe("created");
     expect(body.administrator.email).toBe("juan@example.org");
-    expect(body.administrator.username).toBe("202600003");
+    expect(body.administrator.username).toBe("SCPPA_admin_1");
     expect(body.temporaryPassword).toBeNull();
-    expect(userScopedSupabase.rpc).toHaveBeenCalledWith("generate_next_membership_username", {
+    expect(userScopedSupabase.rpc).toHaveBeenCalledWith("generate_membership_username", {
       target_organization_id: "org-1",
+      target_role: "organization_admin",
     });
     expect(serviceSupabase.createUser).toHaveBeenCalledOnce();
     expect(serviceSupabase.profileInsert).toHaveBeenCalledWith(
@@ -262,7 +265,7 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
     expect(serviceSupabase.membershipInsert).toHaveBeenCalledWith({
       organization_id: "org-1",
       user_id: "new-user-1",
-      username: "202600003",
+      username: "SCPPA_admin_1",
       role: "organization_admin",
       status: "active",
     });
@@ -331,7 +334,7 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
     expect(serviceSupabase.membershipInsert).toHaveBeenCalledWith({
       organization_id: "org-1",
       user_id: "existing-user-1",
-      username: "202600003",
+      username: "SCPPA_admin_1",
       role: "organization_admin",
       status: "active",
     });
@@ -339,7 +342,7 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
     expect(sendAdminOnboardingEmail).not.toHaveBeenCalled();
   });
 
-  it("promotes an existing member without changing membership id or username", async () => {
+  it("promotes an existing member, assigning the next admin username", async () => {
     const serviceSupabase = createServiceSupabase({
       existingProfile: {
         id: "existing-user-1",
@@ -351,12 +354,13 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
       existingMembership: {
         id: "membership-1",
         user_id: "existing-user-1",
-        username: "202600001",
+        username: "SCPPA_0025",
         role: "member",
         status: "active",
       },
     });
-    createSupabaseServerClient.mockResolvedValue(createUserScopedSupabase());
+    const userScopedSupabase = createUserScopedSupabase();
+    createSupabaseServerClient.mockResolvedValue(userScopedSupabase);
     createSupabaseServiceClient.mockReturnValue(serviceSupabase);
 
     const response = await post(validPayload);
@@ -364,12 +368,22 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
 
     expect(response.status).toBe(200);
     expect(body.mode).toBe("promoted");
-    expect(body.administrator.username).toBe("202600001");
+    expect(body.administrator.username).toBe("SCPPA_admin_1");
     expect(body.temporaryPassword).toBeNull();
+    expect(userScopedSupabase.rpc).toHaveBeenCalledWith("generate_membership_username", {
+      target_organization_id: "org-1",
+      target_role: "organization_admin",
+    });
     expect(serviceSupabase.createUser).not.toHaveBeenCalled();
     expect(serviceSupabase.membershipInsert).not.toHaveBeenCalled();
+    expect(serviceSupabase.membershipUpdate).toHaveBeenCalledWith({
+      role: "organization_admin",
+      username: "SCPPA_admin_1",
+    });
     expect(serviceSupabase.membershipUpdateMaybeSingle).toHaveBeenCalledOnce();
-    expect(sendAdminPromotionEmail).toHaveBeenCalledOnce();
+    expect(sendAdminPromotionEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "SCPPA_admin_1" }),
+    );
     expect(sendAdminOnboardingEmail).not.toHaveBeenCalled();
   });
 
@@ -385,7 +399,7 @@ describe("POST /api/platform/organizations/[id]/admins", () => {
       existingMembership: {
         id: "membership-1",
         user_id: "existing-user-1",
-        username: "202600001",
+        username: "SCPPA_admin_1",
         role: "organization_admin",
         status: "active",
       },

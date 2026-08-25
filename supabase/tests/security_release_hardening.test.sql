@@ -142,8 +142,8 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.generate_next_membership_username(uuid, integer)', 'execute'),
-  'anon cannot execute generate_next_membership_username'
+  not has_function_privilege('anon', 'public.generate_membership_username(uuid, public.organization_membership_role)', 'execute'),
+  'anon cannot execute generate_membership_username'
 );
 
 select ok(
@@ -157,8 +157,8 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('authenticated', 'public.generate_next_username(integer)', 'execute'),
-  'authenticated cannot execute generate_next_username directly'
+  has_function_privilege('authenticated', 'public.generate_membership_username(uuid, public.organization_membership_role)', 'execute'),
+  'authenticated can execute generate_membership_username'
 );
 
 select ok(
@@ -170,14 +170,14 @@ select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 
 select lives_ok(
-  $$ select public.generate_next_membership_username('bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  $$ select public.generate_membership_username('bbbbbbb1-0000-0000-0000-000000000001', 'member'); $$,
   'authorized admin can still generate the next membership username'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
 
 select throws_ok(
-  $$ select public.generate_next_membership_username('bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  $$ select public.generate_membership_username('bbbbbbb1-0000-0000-0000-000000000001', 'member'); $$,
   'P0001',
   'Only organization administrators can generate usernames.',
   'plain member still cannot generate membership usernames'
