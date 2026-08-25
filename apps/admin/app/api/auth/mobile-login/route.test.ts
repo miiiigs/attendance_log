@@ -125,8 +125,23 @@ describe("POST /api/auth/mobile-login", () => {
     const body = await response.json();
     expect(body.access_token).toBe("access-token");
     expect(body.organization).toMatchObject({ id: ORG_A, code: "ORGA", slug: "org-a" });
-    expect(body.membership).toMatchObject({ id: "m-a", username: "ORGA_0001" });
-    expect(body.profile).toMatchObject({ id: "u-1", email: "juan@example.com" });
+    expect(body.membership).toMatchObject({ id: "m-a", username: "ORGA_0001", status: "active" });
+    expect(body.profile).toMatchObject({ id: "u-1", email: "juan@example.com", status: "active" });
+  });
+
+  it("returns profile.status and membership.status for an active member login", async () => {
+    createSupabaseServiceClient.mockReturnValue(buildSupabaseMock());
+
+    const response = await post({
+      organizationCode: "orga",
+      username: "ORGA_0001",
+      password: "password123",
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.profile.status).toBe("active");
+    expect(body.membership.status).toBe("active");
   });
 
   it("resolves the correct account when the same user exists in two organizations", async () => {
@@ -181,6 +196,24 @@ describe("POST /api/auth/mobile-login", () => {
           status: "inactive",
           organization_id: ORG_A,
         },
+      ],
+    });
+    createSupabaseServiceClient.mockReturnValue(mock);
+
+    const response = await post({
+      organizationCode: "orga",
+      username: "ORGA_0001",
+      password: "password123",
+    });
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toBe("This account is currently inactive.");
+  });
+
+  it("rejects an inactive profile", async () => {
+    const mock = buildSupabaseMock({
+      profiles: [
+        { id: "u-1", first_name: "Juan", last_name: "Dela Cruz", email: "juan@example.com", status: "inactive" },
       ],
     });
     createSupabaseServiceClient.mockReturnValue(mock);
