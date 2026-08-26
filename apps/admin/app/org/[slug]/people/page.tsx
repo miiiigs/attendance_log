@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { RealtimeRouteRefresh } from "../../../../components/realtime-route-refresh";
 import { getFullName } from "@attendance/shared";
 import { getOrgPeople, type OrgPeopleSort } from "../../../../lib/data/org";
 import { requireOrgAdmin } from "../../../../lib/org-auth";
@@ -43,6 +44,13 @@ export default async function OrgPeoplePage({
 
   return (
     <section className="space-y-5">
+      <RealtimeRouteRefresh
+        channelName={`org-people-${organization.id}`}
+        changes={[
+          { event: "*", schema: "public", table: "organization_memberships", filter: `organization_id=eq.${organization.id}` },
+        ]}
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="admin-eyebrow">{organization.code}</p>

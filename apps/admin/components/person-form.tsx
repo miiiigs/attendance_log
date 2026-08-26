@@ -4,7 +4,7 @@ import { personCreateSchema, personUpdateSchema, type PersonCreateInput, type Pe
 import { AlertTriangle, CheckCircle2, Copy, Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ButtonSpinner } from "./button-spinner";
 
 interface PersonFormProps {
@@ -51,6 +51,7 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
+  const [, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
     const payload = {
@@ -123,7 +124,9 @@ export function PersonForm({ mode, slug, person }: PersonFormProps) {
     }
 
     setLoading(false);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   async function retryEmail() {

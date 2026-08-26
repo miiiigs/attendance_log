@@ -40,7 +40,9 @@ export default async function OrgCurrentActivityPage({
         </div>
 
         <CurrentActivityManager
+          key={`${currentActivity.id}:${qrSession?.id ?? "no-qr"}:${summary.logged}:${summary.completed}:${summary.notLogged}`}
           slug={slug}
+          organizationId={organization.id}
           activityId={currentActivity.id}
           activityName={currentActivity.name}
           startedAt={currentActivity.started_at}
@@ -69,7 +71,7 @@ export default async function OrgCurrentActivityPage({
           <div>
             <p className="text-sm font-medium text-[var(--foreground)]">No current activity</p>
             <p className="mt-1 text-xs text-[var(--muted)]">
-              No activity is in progress. Starting one automatically generates its QR code.
+              No activity is in progress. Starting one automatically generates its QR code so members can time in.
             </p>
           </div>
         </div>

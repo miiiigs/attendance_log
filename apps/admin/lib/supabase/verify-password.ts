@@ -17,7 +17,7 @@ export async function verifyPasswordForEmail(email: string, password: string) {
   });
 
   if (!error) {
-    await client.auth.signOut();
+    await client.auth.signOut({ scope: "local" });
   }
 
   return { error: error?.message ?? null };

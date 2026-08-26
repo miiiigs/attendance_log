@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(27);
+select plan(36);
 
 -- ============================================================================
 -- Setup: three organizations, seven people, five memberships
@@ -153,9 +153,11 @@ select is(
   'first scan stores time_in'
 );
 
-select lives_ok(
+select throws_ok(
   format('select * from public.scan_activity(%L);', :'qr_token_a2'),
-  'second activity scan succeeds (time out)'
+  'P0001',
+  'You are already timed in to this activity. Use Leave Activity when you are ready to leave.',
+  'second scan while open is rejected'
 );
 
 select is(
@@ -163,15 +165,38 @@ select is(
    from public.activity_scans
    where scan_type = 'time_out'
      and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'),
-  1,
-  'second scan stores time_out'
+  0,
+  'second scan while open does not store a QR time_out'
+);
+
+select time_out as manual_leave_time_out
+from public.leave_activity(:'activity_a_id') \gset
+
+select ok(
+  :'manual_leave_time_out'::timestamptz is not null,
+  'leave activity sets time_out after a time in'
+);
+
+select time_out as second_leave_time_out, message as second_leave_message
+from public.leave_activity(:'activity_a_id') \gset
+
+select is(
+  :'second_leave_message'::text,
+  'Activity already completed.',
+  'second leave returns an already-completed result'
+);
+
+select is(
+  :'second_leave_time_out'::timestamptz,
+  :'manual_leave_time_out'::timestamptz,
+  'second leave preserves the original timeout'
 );
 
 select throws_ok(
   format('select * from public.scan_activity(%L);', :'qr_token_a2'),
   'P0001',
   'Activity already completed.',
-  'third scan is rejected'
+  'scan after manual leave is rejected as completed'
 );
 
 -- Cross-tenant scan must fail closed.
@@ -189,9 +214,30 @@ select throws_ok(
 -- ============================================================================
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA
 
+select throws_ok(
+  format('select * from public.leave_activity(%L);', :'activity_a_id'),
+  'P0001',
+  'You are not currently timed in to this activity.',
+  'leave without time in is rejected'
+);
+
 select lives_ok(
   format('select * from public.end_activity(%L);', :'activity_a_id'),
   'admin can end an activity'
+);
+
+select is(
+  (select time_out
+   from public.activity_logs
+   where activity_id = :'activity_a_id'
+     and membership_id = (
+       select id
+       from public.organization_memberships
+       where user_id = '00000000-0000-0000-0000-000000000002'
+         and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'
+     )),
+  :'manual_leave_time_out'::timestamptz,
+  'end activity preserves an earlier manual timeout'
 );
 
 -- Craft an active QR still pointing at the ended activity to prove the guard.
@@ -249,6 +295,17 @@ select lives_ok(
   'member can time in to a second activity on the same date'
 );
 
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA
+
+select throws_ok(
+  format('select * from public.leave_activity(%L);', :'activity_a2_id'),
+  'P0001',
+  'You are not currently timed in to this activity.',
+  'an organization member without an open log cannot leave the activity'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', true); -- memberA
+
 select is(
   (select count(*)::integer
    from public.activity_logs
@@ -257,6 +314,47 @@ select is(
                             and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001')),
   2,
   'two activity logs for the same member on the same date are allowed'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA
+
+select lives_ok(
+  format('select * from public.end_activity(%L);', :'activity_a2_id'),
+  'ending an activity auto-completes still-open participants'
+);
+
+select ended_at as activity_a2_ended_at
+from public.activities
+where id = :'activity_a2_id' \gset
+
+select time_out as auto_completed_time_out
+from public.activity_logs
+where activity_id = :'activity_a2_id'
+  and membership_id = (
+    select id
+    from public.organization_memberships
+    where user_id = '00000000-0000-0000-0000-000000000002'
+      and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'
+  ) \gset
+
+select is(
+  :'auto_completed_time_out'::timestamptz,
+  :'activity_a2_ended_at'::timestamptz,
+  'auto-completed time_out uses the same timestamp as ended_at'
+);
+
+select is(
+  (select count(*)::integer
+   from public.activity_logs
+   where activity_id = :'activity_a2_id'
+     and membership_id = (
+       select id
+       from public.organization_memberships
+       where user_id = '00000000-0000-0000-0000-000000000001'
+         and organization_id = 'aaaaaaa1-0000-0000-0000-000000000001'
+     )),
+  0,
+  'ending an activity does not create a log for members who never scanned'
 );
 
 -- ============================================================================

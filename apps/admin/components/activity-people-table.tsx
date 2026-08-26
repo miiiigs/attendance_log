@@ -129,7 +129,7 @@ export function ActivityPeopleTable({
       {filter !== "all" ? (
         <div className="flex flex-wrap gap-2">
           <span className="admin-chip admin-chip-soft">
-            {filter === "logged" ? "Logged" : "Not Yet Logged"} · {filter === "logged" ? counts.logged : counts.notLogged}
+            {filter === "logged" ? "Timed In" : "Not Yet Logged"} · {filter === "logged" ? counts.logged : counts.notLogged}
           </span>
           <button type="button" onClick={() => setFilter("all")} className="text-xs font-semibold text-[var(--accent)]">
             Clear filter
@@ -150,7 +150,7 @@ export function ActivityPeopleTable({
           onClick={() => setFilter("logged")}
           className={`admin-chip ${filter === "logged" ? "admin-chip-success" : "admin-chip-soft"}`}
         >
-          Logged · {counts.logged}
+          Timed In · {counts.logged}
         </button>
         <button
           type="button"
@@ -177,7 +177,7 @@ export function ActivityPeopleTable({
               <tbody>
                 {pageRows.map((row) => {
                   const status = getStatus(row);
-                  const label = status === "completed" ? "Completed" : status === "logged" ? "Logged" : "Not Logged";
+                  const label = status === "completed" ? "Completed" : status === "logged" ? "Timed In" : "Not Logged";
                   const tone = status === "completed" ? "admin-chip-success" : status === "logged" ? "admin-chip-soft" : "admin-chip-warning";
 
                   return (

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarClock, QrCode, ShieldOff, Square } from "lucide-react";
 import { formatDateTimeInTimeZone } from "@attendance/shared";
 import { ActivityPeopleTable } from "./activity-people-table";
 import { QrDisplay } from "./qr-display";
 import { ButtonSpinner } from "./button-spinner";
+import { RealtimeRouteRefresh } from "./realtime-route-refresh";
 import type { ActivityPersonRow } from "../lib/data/org";
 
 interface QrSession {
@@ -19,6 +20,7 @@ interface QrSession {
 
 export function CurrentActivityManager({
   slug,
+  organizationId,
   activityId,
   activityName,
   startedAt,
@@ -30,6 +32,7 @@ export function CurrentActivityManager({
   organizationCode,
 }: {
   slug: string;
+  organizationId: string;
   activityId: string;
   activityName: string;
   startedAt: string;
@@ -42,11 +45,27 @@ export function CurrentActivityManager({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"generate_qr" | "remove_qr" | "end_activity" | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [isRoutePending, startTransition] = useTransition();
+
+  const realtimeChanges = useMemo(
+    () => [
+      { event: "*", schema: "public", table: "activities", filter: `id=eq.${activityId}` },
+      { event: "*", schema: "public", table: "activity_logs", filter: `activity_id=eq.${activityId}` },
+      { event: "*", schema: "public", table: "qr_sessions", filter: `activity_id=eq.${activityId}` },
+      { event: "*", schema: "public", table: "organization_memberships", filter: `organization_id=eq.${organizationId}` },
+    ] as const,
+    [activityId, organizationId],
+  );
+
+  const isBusy = pendingAction !== null || isRoutePending;
+  const isGenerating = pendingAction === "generate_qr";
+  const isRemoving = pendingAction === "remove_qr";
+  const isEnding = pendingAction === "end_activity";
 
   async function generateQr() {
-    setLoading(true);
+    setPendingAction("generate_qr");
     setError(null);
 
     try {
@@ -58,19 +77,21 @@ export function CurrentActivityManager({
 
       if (!response.ok) {
         setError(result.error ?? "Unable to generate a QR.");
+        setPendingAction(null);
         return;
       }
 
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch {
       setError("Unable to generate a QR.");
-    } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   }
 
   async function removeQr() {
-    setLoading(true);
+    setPendingAction("remove_qr");
     setError(null);
 
     try {
@@ -81,19 +102,21 @@ export function CurrentActivityManager({
 
       if (!response.ok) {
         setError(result.error ?? "Unable to remove the QR.");
+        setPendingAction(null);
         return;
       }
 
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch {
       setError("Unable to remove the QR.");
-    } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   }
 
   async function endActivity() {
-    setLoading(true);
+    setPendingAction("end_activity");
     setError(null);
 
     try {
@@ -104,23 +127,23 @@ export function CurrentActivityManager({
 
       if (!response.ok) {
         setError(result.error ?? "Unable to end the activity.");
-        setConfirmEnd(false);
+        setPendingAction(null);
         return;
       }
 
-      setConfirmEnd(false);
-      router.push(`/org/${slug}/activities/${activityId}`);
-      router.refresh();
+      startTransition(() => {
+        router.push(`/org/${slug}/activities/${activityId}`);
+      });
     } catch {
       setError("Unable to end the activity.");
-      setConfirmEnd(false);
-    } finally {
-      setLoading(false);
+      setPendingAction(null);
     }
   }
 
   return (
     <div className="space-y-6">
+      <RealtimeRouteRefresh channelName={`current-activity-${organizationId}-${activityId}`} changes={realtimeChanges} />
+
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)]">
         <article className="admin-card p-6">
           <div className="flex items-center justify-between gap-4">
@@ -163,18 +186,18 @@ export function CurrentActivityManager({
                       : "Generate a QR to let members start logging. Removing a QR does not end the activity."}
                   </p>
                 </div>
-                <button type="button" onClick={generateQr} disabled={loading} aria-busy={loading} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
-                  {loading ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
-                  {loading ? "Generating..." : hasActiveQr ? "Generate Replacement" : "Generate New QR"}
+                <button type="button" onClick={generateQr} disabled={isBusy} aria-busy={isGenerating} className="admin-button disabled:cursor-not-allowed disabled:opacity-70">
+                  {isGenerating ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
+                  {isGenerating ? "Generating..." : hasActiveQr ? "Generate Replacement" : "Generate New QR"}
                 </button>
               </div>
             )}
 
             {qr ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={generateQr} disabled={loading} aria-busy={loading} className="admin-button-secondary disabled:cursor-not-allowed disabled:opacity-70">
-                  {loading ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
-                  {loading ? "Generating..." : "Generate Replacement"}
+                <button type="button" onClick={generateQr} disabled={isBusy} aria-busy={isGenerating} className="admin-button-secondary disabled:cursor-not-allowed disabled:opacity-70">
+                  {isGenerating ? <ButtonSpinner /> : <QrCode className="h-4 w-4" />}
+                  {isGenerating ? "Generating..." : "Generate Replacement"}
                 </button>
                 <button
                   type="button"
@@ -183,12 +206,12 @@ export function CurrentActivityManager({
                       removeQr().catch(() => undefined);
                     }
                   }}
-                  disabled={loading}
-                  aria-busy={loading}
+                  disabled={isBusy}
+                  aria-busy={isRemoving}
                   className="admin-button-warning disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? <ButtonSpinner /> : <ShieldOff className="h-4 w-4" />}
-                  {loading ? "Removing..." : "Remove QR"}
+                  {isRemoving ? <ButtonSpinner /> : <ShieldOff className="h-4 w-4" />}
+                  {isRemoving ? "Removing..." : "Remove QR"}
                 </button>
               </div>
             ) : null}
@@ -205,8 +228,8 @@ export function CurrentActivityManager({
             <h2 className="text-sm font-semibold text-[var(--foreground)]">End activity</h2>
           </div>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Ending marks the activity as completed, stops the current QR from accepting new logs, and preserves all existing
-            participation history. Historical time-outs are never fabricated.
+            Ending the activity stops the QR from accepting new participants and records the activity end time as Time Out for
+            everyone who is still timed in.
           </p>
 
           {confirmEnd ? (
@@ -216,17 +239,17 @@ export function CurrentActivityManager({
                 <div>
                   <p className="text-sm font-semibold text-[var(--foreground)]">End Activity?</p>
                   <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                    {activityName} will be marked as completed. The current QR will stop accepting new logs. Existing participation
-                    history will be preserved.
+                    {activityName} will be marked as completed. The current QR will stop accepting new participants, and anyone
+                    still timed in will receive the same Time Out timestamp as the activity end time.
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setConfirmEnd(false)} disabled={loading} className="admin-button-secondary">
+                <button type="button" onClick={() => setConfirmEnd(false)} disabled={isEnding} className="admin-button-secondary">
                   Cancel
                 </button>
-                <button type="button" data-testid="end-activity-confirm" onClick={endActivity} disabled={loading} aria-busy={loading} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
-                  {loading ? (
+                <button type="button" data-testid="end-activity-confirm" onClick={endActivity} disabled={isBusy} aria-busy={isEnding} className="admin-button-danger disabled:cursor-not-allowed disabled:opacity-70">
+                  {isEnding ? (
                     <>
                       <ButtonSpinner />
                       Ending...
@@ -238,7 +261,7 @@ export function CurrentActivityManager({
               </div>
             </div>
           ) : (
-            <button type="button" data-testid="end-activity-trigger" onClick={() => setConfirmEnd(true)} className="admin-button-warning mt-4 w-full justify-start">
+            <button type="button" data-testid="end-activity-trigger" onClick={() => setConfirmEnd(true)} disabled={isBusy} className="admin-button-warning mt-4 w-full justify-start disabled:cursor-not-allowed disabled:opacity-70">
               <Square className="h-4 w-4" />
               End Activity
             </button>

@@ -47,12 +47,21 @@ export async function changeMobilePassword(
       });
 
       if (!error) {
-        await client.auth.signOut();
+        await client.auth.signOut({ scope: "local" });
       }
 
       return { error: error?.message ?? null };
     },
     updatePassword: async ({ password }) => {
+      const {
+        data: { session: currentSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || currentSession?.user.id !== session.user.id) {
+        return { error: "We couldn't verify your account. Please sign in again." };
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
       return { error: error?.message ?? null };
     },

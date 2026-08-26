@@ -3,7 +3,7 @@
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ButtonSpinner } from "./button-spinner";
 
 export function LoginForm() {
@@ -11,6 +11,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isNavigating, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
     const identifier = String(formData.get("identifier") ?? "").trim();
@@ -40,8 +41,9 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/");
-    router.refresh();
+    startTransition(() => {
+      router.replace("/");
+    });
   }
 
   return (
@@ -101,11 +103,11 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={loading}
-        aria-busy={loading}
+        disabled={loading || isNavigating}
+        aria-busy={loading || isNavigating}
         className="admin-button mt-2 w-full disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {loading ? (
+        {loading || isNavigating ? (
           <>
             <ButtonSpinner />
             Signing in...

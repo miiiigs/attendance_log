@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useEffectEvent, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
+import { AppState } from "react-native";
+import { createRealtimeInvalidationChannel, type RealtimePostgresChange } from "@attendance/shared";
 import { supabase } from "../lib/supabase/client";
 
 const ORG_CONTEXT_KEY = "activity_log_org_context";
@@ -148,6 +150,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearSessionContext();
   }
 
+  const refreshSessionContext = useEffectEvent(async () => {
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession();
+
+    setSession(currentSession);
+
+    if (currentSession) {
+      await revalidateContext(currentSession);
+      return;
+    }
+
+    await clearSessionContext();
+  });
+
   useEffect(() => {
     let mounted = true;
 
@@ -187,6 +204,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       listener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      return;
+    }
+
+    const changes = [
+      { event: "*", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
+      ...(membership?.id
+        ? [{ event: "*", schema: "public", table: "organization_memberships", filter: `id=eq.${membership.id}` } as const]
+        : []),
+    ] satisfies readonly RealtimePostgresChange[];
+
+    const subscription = createRealtimeInvalidationChannel({
+      client: supabase,
+      channelName: `auth-context-${session.user.id}-${membership?.id ?? "none"}`,
+      changes,
+      onInvalidate: () => {
+        refreshSessionContext().catch(() => undefined);
+      },
+    });
+
+    return () => {
+      void subscription.remove();
+    };
+  }, [membership?.id, refreshSessionContext, session?.user.id]);
+
+  useEffect(() => {
+    const listener = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        refreshSessionContext().catch(() => undefined);
+      }
+    });
+
+    return () => {
+      listener.remove();
+    };
+  }, [refreshSessionContext]);
 
   const value = useMemo(
     () => ({
