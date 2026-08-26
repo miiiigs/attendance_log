@@ -123,8 +123,8 @@ export default function ProfileScreen() {
       <MobileSoftCard>
         <Text style={styles.noteTitle}>Session</Text>
         <Text style={styles.noteText}>
-          You are signed in to {organization?.name ?? "your organization"} on QRLog. Use the scan screen to log your time in
-          and time out whenever an activity is open.
+          You are signed in to {organization?.name ?? "your organization"} on QRLog. Use the scan screen to log your Time In
+          when an activity is open, then use Leave Activity from Home when you are ready to finish.
         </Text>
       </MobileSoftCard>
 

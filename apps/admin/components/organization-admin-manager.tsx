@@ -3,7 +3,7 @@
 import { personCreateSchema } from "@attendance/shared";
 import { CheckCircle2, Key, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ButtonSpinner } from "./button-spinner";
 
 interface AdminResult {
@@ -32,6 +32,7 @@ export function AddOrganizationAdmin({ organizationId }: { organizationId: strin
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AdminResult | null>(null);
+  const [, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
     const parsed = personCreateSchema.safeParse({
@@ -66,7 +67,9 @@ export function AddOrganizationAdmin({ organizationId }: { organizationId: strin
 
     setResult(body);
     setLoading(false);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   function closeResult() {

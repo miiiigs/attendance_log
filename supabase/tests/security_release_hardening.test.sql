@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(25);
+select plan(31);
 
 insert into public.organizations (id, name, code, slug, status, timezone) values
   ('bbbbbbb1-0000-0000-0000-000000000001', 'Security Org', 'SECA', 'security-org', 'active', 'Asia/Manila')
@@ -142,6 +142,11 @@ select ok(
 );
 
 select ok(
+  not has_function_privilege('anon', 'public.leave_activity(uuid)', 'execute'),
+  'anon cannot execute leave_activity'
+);
+
+select ok(
   not has_function_privilege('anon', 'public.generate_membership_username(uuid, public.organization_membership_role)', 'execute'),
   'anon cannot execute generate_membership_username'
 );
@@ -164,6 +169,66 @@ select ok(
 select ok(
   not has_function_privilege('authenticated', 'public.is_admin()', 'execute'),
   'authenticated cannot execute legacy is_admin directly'
+);
+
+select ok(
+  has_function_privilege('authenticated', 'public.leave_activity(uuid)', 'execute'),
+  'authenticated can execute leave_activity'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'activities'
+  ),
+  'activities is published to supabase_realtime'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'activity_logs'
+  ),
+  'activity_logs is published to supabase_realtime'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'organization_memberships'
+  ),
+  'organization_memberships is published to supabase_realtime'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'profiles'
+  ),
+  'profiles is published to supabase_realtime'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'qr_sessions'
+  ),
+  'qr_sessions is published to supabase_realtime'
 );
 
 select set_config('request.jwt.claim.role', 'authenticated', true);

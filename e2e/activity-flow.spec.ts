@@ -9,7 +9,7 @@ function memberRow(page: import("@playwright/test").Page) {
 }
 
 test.describe.serial("Activity Log organization flow (local Supabase)", () => {
-  test("org admin runs the activity lifecycle; member logs in/out; cross-org scan rejected", async ({ page, request }) => {
+  test("org admin runs the activity lifecycle; member leaves manually; admin end auto-completes open logs", async ({ page, request }) => {
     // ------------------------------------------------------------------
     // 1. Org admin authenticates through the real login form.
     // ------------------------------------------------------------------
@@ -73,20 +73,27 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     expect(timeIn.error, JSON.stringify(timeIn.error)).toBeNull();
     const timeInRow = Array.isArray(timeIn.data) ? timeIn.data[0] : timeIn.data;
     expect(timeInRow.scan_type).toBe("time_in");
+    const firstActivityId = String(timeInRow.activity_id);
 
     // ------------------------------------------------------------------
-    // 5. Org admin refreshes and sees the member as Logged.
+    // 5. Org admin refreshes and sees the member as Timed In.
     // ------------------------------------------------------------------
     await page.reload();
-    await expect(memberRow(page).getByText("Logged")).toBeVisible();
+    await expect(memberRow(page).getByText("Timed In")).toBeVisible();
 
     // ------------------------------------------------------------------
-    // 6. Member performs the second scan (Time Out).
+    // 6. A second scan is rejected; the member must leave manually.
     // ------------------------------------------------------------------
-    const timeOut = await scanClient.rpc("scan_activity", { qr_token: qrToken });
-    expect(timeOut.error, JSON.stringify(timeOut.error)).toBeNull();
-    const timeOutRow = Array.isArray(timeOut.data) ? timeOut.data[0] : timeOut.data;
-    expect(timeOutRow.scan_type).toBe("time_out");
+    const secondScan = await scanClient.rpc("scan_activity", { qr_token: qrToken });
+    expect(secondScan.error).not.toBeNull();
+    expect(String(secondScan.error?.message ?? "")).toContain(
+      "You are already timed in to this activity. Use Leave Activity when you are ready to leave.",
+    );
+
+    const manualLeave = await scanClient.rpc("leave_activity", { target_activity_id: firstActivityId });
+    expect(manualLeave.error, JSON.stringify(manualLeave.error)).toBeNull();
+    const manualLeaveRow = Array.isArray(manualLeave.data) ? manualLeave.data[0] : manualLeave.data;
+    expect(manualLeaveRow.time_out).toBeTruthy();
 
     await page.reload();
     await expect(memberRow(page).getByText("Completed")).toBeVisible();
@@ -112,7 +119,7 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     expect(String(crossTenant.error?.message ?? "")).toContain("QR code does not belong to your organization.");
 
     // ------------------------------------------------------------------
-    // 8. Org admin ends the activity; QR stops working; history preserved.
+    // 8. Org admin ends the first activity; the completed row is preserved.
     // ------------------------------------------------------------------
     await page.goto("/org/e2ea/current-activity");
     await page.getByTestId("end-activity-trigger").click();
@@ -122,8 +129,41 @@ test.describe.serial("Activity Log organization flow (local Supabase)", () => {
     await expect(page.getByText("ended", { exact: true })).toBeVisible();
     await expect(memberRow(page).getByText("Completed")).toBeVisible();
 
+    // ------------------------------------------------------------------
+    // 9. Start another activity; member scans once and admin ends it to
+    //    auto-complete the open participant.
+    // ------------------------------------------------------------------
+    await page.goto("/org/e2ea/current-activity");
+    await page.getByPlaceholder("e.g. General Assembly").fill("E2E Auto Complete Activity");
+    await page.getByTestId("start-activity-submit").click();
+
+    await expect(page.getByRole("heading", { name: "E2E Auto Complete Activity" })).toBeVisible();
+
+    const secondActivityCookies = await page.context().cookies();
+    const secondTokenCookie = secondActivityCookies.find((cookie) => cookie.name.startsWith("activity_qr_token_"));
+    expect(secondTokenCookie, "replacement activity QR token cookie should be set").toBeTruthy();
+    const secondQrToken = secondTokenCookie!.value;
+
+    const secondTimeIn = await scanClient.rpc("scan_activity", { qr_token: secondQrToken });
+    expect(secondTimeIn.error, JSON.stringify(secondTimeIn.error)).toBeNull();
+    const secondTimeInRow = Array.isArray(secondTimeIn.data) ? secondTimeIn.data[0] : secondTimeIn.data;
+    const secondActivityId = String(secondTimeInRow.activity_id);
+
+    await page.reload();
+    await expect(memberRow(page).getByText("Timed In")).toBeVisible();
+
+    await page.getByTestId("end-activity-trigger").click();
+    await page.getByTestId("end-activity-confirm").click();
+
+    await page.waitForURL(new RegExp(`/org/e2ea/activities/${secondActivityId}$`));
+    await expect(memberRow(page).getByText("Completed")).toBeVisible();
+
     const afterEnd = await scanClient.rpc("scan_activity", { qr_token: qrToken });
     expect(afterEnd.error).not.toBeNull();
     expect(String(afterEnd.error?.message ?? "")).toContain("QR code has expired.");
+
+    const afterSecondEnd = await scanClient.rpc("scan_activity", { qr_token: secondQrToken });
+    expect(afterSecondEnd.error).not.toBeNull();
+    expect(String(afterSecondEnd.error?.message ?? "")).toContain("QR code has expired.");
   });
 });

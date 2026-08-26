@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Building2, Info, Save } from "lucide-react";
 import { ButtonSpinner } from "./button-spinner";
 
@@ -20,6 +20,7 @@ export function OrgSettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
@@ -51,8 +52,9 @@ export function OrgSettingsForm({
     }
 
     setSuccess("Organization settings updated successfully.");
-    setLoading(false);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   return (

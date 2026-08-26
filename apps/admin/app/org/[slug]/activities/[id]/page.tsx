@@ -80,7 +80,8 @@ export default async function OrgActivityDetailPage({
       <section className="admin-card-flat flex items-center gap-2.5 px-4 py-3.5">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--muted)]" />
         <p className="text-xs leading-6 text-[var(--muted)]">
-          Incomplete time-in rows remain incomplete. Ending an activity never fabricates time-outs.
+          Members complete an activity either by using Leave Activity or when the organization ends the activity for everyone
+          still timed in.
         </p>
       </section>
 

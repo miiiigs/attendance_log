@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import {
-  formatDateInTimeZone,
-  formatTimeInTimeZone,
-  getAttendanceGreeting,
-} from "@attendance/shared";
-import { MobileShell, MobileStatusChip, mobileTheme } from "../../components/mobile-ui";
+import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { createRealtimeInvalidationChannel, formatDateInTimeZone, formatTimeInTimeZone, getAttendanceGreeting } from "@attendance/shared";
+import { MobileCard, MobileShell, MobileSoftCard, MobileStatusChip, mobileTheme } from "../../components/mobile-ui";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { getOrgTimezone } from "../../lib/config";
@@ -16,7 +12,23 @@ interface CurrentActivity {
   name: string;
   status: string;
   started_at: string;
+  ended_at: string | null;
 }
+
+interface ActivityParticipation {
+  id: string;
+  activity_id: string;
+  time_in: string;
+  time_out: string | null;
+}
+
+interface RecentCompletion {
+  activityName: string;
+  timeIn: string;
+  timeOut: string;
+}
+
+type ActivityState = "not_joined" | "timed_in" | "completed";
 
 function getErrorMessage(reason: unknown) {
   if (reason instanceof Error && reason.message) {
@@ -30,44 +42,150 @@ export default function ActivityHomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [currentActivity, setCurrentActivity] = useState<CurrentActivity | null>(null);
+  const [participation, setParticipation] = useState<ActivityParticipation | null>(null);
+  const [recentCompletion, setRecentCompletion] = useState<RecentCompletion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [leaving, setLeaving] = useState(false);
 
   const timezone = getOrgTimezone(organization?.timezone);
 
-  const loadCurrentActivity = useCallback(async () => {
-    if (!organization) {
+  const loadHomeState = useEffectEvent(async (showLoading = false) => {
+    if (!organization || !membership) {
       setCurrentActivity(null);
+      setParticipation(null);
+      setRecentCompletion(null);
+      setLoading(false);
       return;
     }
 
+    if (showLoading) {
+      setLoading(true);
+    }
+
     try {
-      const { data, error: queryError } = await supabase
+      const { data: activeActivity, error: activityError } = await supabase
         .from("activities")
-        .select("id, name, status, started_at")
+        .select("id, name, status, started_at, ended_at")
         .eq("organization_id", organization.id)
         .eq("status", "active")
         .maybeSingle();
 
-      if (queryError) {
-        throw queryError;
+      if (activityError) {
+        throw activityError;
       }
 
-      setCurrentActivity(data ?? null);
+      if (!activeActivity) {
+        const { data: latestLog, error: latestLogError } = await supabase
+          .from("activity_logs")
+          .select("activity_id, time_in, time_out")
+          .eq("membership_id", membership.id)
+          .not("time_out", "is", null)
+          .order("time_in", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestLogError) {
+          throw latestLogError;
+        }
+
+        let latestActivityName = "Latest activity";
+        if (latestLog?.activity_id) {
+          const { data: latestActivity, error: latestActivityError } = await supabase
+            .from("activities")
+            .select("name")
+            .eq("id", latestLog.activity_id)
+            .maybeSingle();
+
+          if (latestActivityError) {
+            throw latestActivityError;
+          }
+
+          latestActivityName = latestActivity?.name ?? latestActivityName;
+        }
+
+        setCurrentActivity(null);
+        setParticipation(null);
+        setRecentCompletion(
+          latestLog?.time_out
+            ? {
+                activityName: latestActivityName,
+                timeIn: latestLog.time_in,
+                timeOut: latestLog.time_out,
+              }
+            : null,
+        );
+        setError(null);
+        return;
+      }
+
+      const { data: currentParticipation, error: participationError } = await supabase
+        .from("activity_logs")
+        .select("id, activity_id, time_in, time_out")
+        .eq("membership_id", membership.id)
+        .eq("activity_id", activeActivity.id)
+        .maybeSingle();
+
+      if (participationError) {
+        throw participationError;
+      }
+
+      setCurrentActivity(activeActivity);
+      setParticipation(currentParticipation ?? null);
+      setRecentCompletion(null);
       setError(null);
     } catch (reason) {
       setError(getErrorMessage(reason));
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
     }
-  }, [organization]);
+  });
 
   useEffect(() => {
-    loadCurrentActivity().catch(() => undefined);
-  }, [loadCurrentActivity, params.refresh]);
+    loadHomeState(true).catch(() => undefined);
+  }, [loadHomeState, membership?.id, organization?.id, params.refresh]);
 
-  if (!profile || !organization) {
+  useEffect(() => {
+    if (!organization?.id || !membership?.id) {
+      return;
+    }
+
+    const subscription = createRealtimeInvalidationChannel({
+      client: supabase,
+      channelName: `mobile-home-${organization.id}-${membership.id}`,
+      changes: [
+        { event: "*", schema: "public", table: "activities", filter: `organization_id=eq.${organization.id}` },
+        { event: "*", schema: "public", table: "activity_logs", filter: `membership_id=eq.${membership.id}` },
+      ],
+      onInvalidate: () => {
+        loadHomeState(false).catch(() => undefined);
+      },
+    });
+
+    return () => {
+      void subscription.remove();
+    };
+  }, [loadHomeState, membership?.id, organization?.id]);
+
+  useEffect(() => {
+    const listener = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        loadHomeState(false).catch(() => undefined);
+      }
+    });
+
+    return () => {
+      listener.remove();
+    };
+  }, [loadHomeState]);
+
+  if (!profile || !organization || !membership) {
     return null;
   }
 
-  if (profile.status !== "active" || membership?.status !== "active") {
+  if (profile.status !== "active" || membership.status !== "active") {
     return (
       <MobileShell route="/" scroll={false} contentContainerStyle={styles.inactiveScreen}>
         <View style={styles.inactivePanel}>
@@ -82,7 +200,79 @@ export default function ActivityHomeScreen() {
     );
   }
 
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim() || membership?.username || profile.email;
+  const fullName = `${profile.firstName} ${profile.lastName}`.trim() || membership.username || profile.email;
+  const activityState: ActivityState | null = currentActivity
+    ? participation?.time_out
+      ? "completed"
+      : participation?.time_in
+        ? "timed_in"
+        : "not_joined"
+    : null;
+
+  const stateChip =
+    activityState === "completed" ? (
+      <MobileStatusChip label="Completed" tone="success" />
+    ) : activityState === "timed_in" ? (
+      <MobileStatusChip label="Timed In" tone="info" />
+    ) : activityState === "not_joined" ? (
+      <MobileStatusChip label="Not Joined" tone="warning" />
+    ) : null;
+
+  function confirmLeaveActivity() {
+    if (!currentActivity || leaving) {
+      return;
+    }
+
+    Alert.alert(
+      "Leave this activity?",
+      "This will record your Time Out and mark the activity as completed for you.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave Activity",
+          style: "destructive",
+          onPress: () => {
+            void handleLeaveActivity();
+          },
+        },
+      ],
+    );
+  }
+
+  async function handleLeaveActivity() {
+    if (!currentActivity || leaving) {
+      return;
+    }
+
+    setLeaving(true);
+    setError(null);
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc("leave_activity", {
+        target_activity_id: currentActivity.id,
+      });
+
+      if (rpcError) {
+        throw rpcError;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.time_in || !result?.time_out) {
+        throw new Error("Unable to leave the activity.");
+      }
+
+      setParticipation({
+        id: result.activity_log_id,
+        activity_id: result.activity_id,
+        time_in: result.time_in,
+        time_out: result.time_out,
+      });
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+    } finally {
+      setLeaving(false);
+    }
+  }
 
   return (
     <MobileShell route="/">
@@ -110,38 +300,106 @@ export default function ActivityHomeScreen() {
       <View style={styles.summarySection}>
         <View style={styles.sectionHeadingRow}>
           <Text style={styles.sectionHeading}>Current Activity</Text>
-          <View style={styles.sectionBadgeWrap}>
-            {currentActivity ? <MobileStatusChip label="In Progress" tone="success" /> : null}
-          </View>
+          <View style={styles.sectionBadgeWrap}>{stateChip}</View>
         </View>
 
-        {currentActivity ? (
-          <View style={styles.activityCard}>
+        {loading ? (
+          <MobileCard style={styles.loadingCard}>
+            <ActivityIndicator color={mobileTheme.accent} />
+            <Text style={styles.loadingText}>Refreshing activity state...</Text>
+          </MobileCard>
+        ) : currentActivity ? (
+          <MobileCard style={styles.activityCard}>
             <Text style={styles.activityName}>{currentActivity.name}</Text>
-            <Text style={styles.activityMeta}>
-              Started {formatTimeInTimeZone(currentActivity.started_at, timezone)}
-            </Text>
-          </View>
+            <Text style={styles.activityMeta}>Started {formatTimeInTimeZone(currentActivity.started_at, timezone)}</Text>
+
+            {activityState === "not_joined" ? (
+              <Text style={styles.activityBody}>Scan the active QR when you arrive to record your Time In.</Text>
+            ) : null}
+
+            {participation?.time_in ? (
+              <View style={styles.timeGrid}>
+                <View style={styles.timeBlock}>
+                  <Text style={styles.timeLabel}>Time In</Text>
+                  <Text style={styles.timeValue}>{formatTimeInTimeZone(participation.time_in, timezone)}</Text>
+                </View>
+                <View style={styles.timeDivider} />
+                <View style={styles.timeBlock}>
+                  <Text style={styles.timeLabel}>Time Out</Text>
+                  <Text style={styles.timeValue}>{formatTimeInTimeZone(participation.time_out, timezone)}</Text>
+                </View>
+              </View>
+            ) : null}
+          </MobileCard>
+        ) : recentCompletion ? (
+          <MobileCard style={styles.activityCard}>
+            <Text style={styles.activityName}>{recentCompletion.activityName}</Text>
+            <Text style={styles.activityMeta}>Latest activity completed</Text>
+            <View style={styles.timeGrid}>
+              <View style={styles.timeBlock}>
+                <Text style={styles.timeLabel}>Time In</Text>
+                <Text style={styles.timeValue}>{formatTimeInTimeZone(recentCompletion.timeIn, timezone)}</Text>
+              </View>
+              <View style={styles.timeDivider} />
+              <View style={styles.timeBlock}>
+                <Text style={styles.timeLabel}>Time Out</Text>
+                <Text style={styles.timeValue}>{formatTimeInTimeZone(recentCompletion.timeOut, timezone)}</Text>
+              </View>
+            </View>
+          </MobileCard>
         ) : (
-          <View style={styles.activityCard}>
+          <MobileCard style={styles.activityCard}>
             <Text style={styles.activityEmpty}>No activity is currently in progress.</Text>
-          </View>
+          </MobileCard>
         )}
       </View>
 
       <View style={styles.actionsSection}>
         <Text style={styles.sectionHeading}>Actions</Text>
-        <View style={styles.actionGroup}>
+
+        {currentActivity && activityState === "not_joined" ? (
           <Pressable
             onPress={() => router.push("/scan")}
-            style={({ pressed }) => [
-              styles.primaryActionButton,
-              pressed ? styles.primaryActionButtonPressed : null,
-            ]}
+            style={({ pressed }) => [styles.primaryActionButton, pressed ? styles.primaryActionButtonPressed : null]}
           >
             <Text style={styles.primaryActionText}>Scan Activity QR</Text>
           </Pressable>
-        </View>
+        ) : null}
+
+        {currentActivity && activityState === "timed_in" ? (
+          <Pressable
+            onPress={confirmLeaveActivity}
+            disabled={leaving}
+            style={({ pressed }) => [
+              styles.primaryActionButton,
+              leaving ? styles.primaryActionButtonDisabled : null,
+              pressed && !leaving ? styles.primaryActionButtonPressed : null,
+            ]}
+          >
+            {leaving ? (
+              <View style={styles.buttonInner}>
+                <ActivityIndicator color={mobileTheme.white} />
+                <Text style={styles.primaryActionText}>Leaving...</Text>
+              </View>
+            ) : (
+              <Text style={styles.primaryActionText}>Leave Activity</Text>
+            )}
+          </Pressable>
+        ) : null}
+
+        {currentActivity && activityState === "completed" ? (
+          <MobileSoftCard>
+            <Text style={styles.completedTitle}>Completed</Text>
+            <Text style={styles.completedText}>Your Time In and Time Out for this activity are already recorded.</Text>
+          </MobileSoftCard>
+        ) : null}
+
+        {!currentActivity ? (
+          <MobileSoftCard>
+            <Text style={styles.completedTitle}>Waiting for the next activity</Text>
+            <Text style={styles.completedText}>When an administrator starts a new activity, it will appear here automatically.</Text>
+          </MobileSoftCard>
+        ) : null}
       </View>
 
       {error ? (
@@ -290,12 +548,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   activityCard: {
-    borderWidth: 1,
-    borderColor: mobileTheme.border,
-    backgroundColor: mobileTheme.panel,
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    gap: 10,
+  },
+  loadingCard: {
+    minHeight: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: mobileTheme.muted,
   },
   activityName: {
     fontSize: 18,
@@ -304,8 +567,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   activityMeta: {
-    marginTop: 6,
     fontSize: 13,
+    color: mobileTheme.muted,
+  },
+  activityBody: {
+    fontSize: 14,
+    lineHeight: 21,
     color: mobileTheme.muted,
   },
   activityEmpty: {
@@ -315,9 +582,6 @@ const styles = StyleSheet.create({
   },
   actionsSection: {
     gap: 12,
-  },
-  actionGroup: {
-    gap: 10,
   },
   primaryActionButton: {
     minHeight: 60,
@@ -333,11 +597,55 @@ const styles = StyleSheet.create({
   primaryActionButtonPressed: {
     backgroundColor: mobileTheme.accentPressed,
   },
+  primaryActionButtonDisabled: {
+    opacity: 0.65,
+  },
   primaryActionText: {
     fontSize: 16,
     fontWeight: "700",
     color: mobileTheme.white,
     textAlign: "center",
+  },
+  buttonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timeGrid: {
+    marginTop: 6,
+    flexDirection: "row",
+    gap: 14,
+  },
+  timeBlock: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    color: mobileTheme.mutedSoft,
+  },
+  timeValue: {
+    marginTop: 8,
+    fontSize: 18,
+    fontWeight: "700",
+    color: mobileTheme.text,
+  },
+  timeDivider: {
+    width: 1,
+    backgroundColor: mobileTheme.borderSoft,
+  },
+  completedTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: mobileTheme.text,
+  },
+  completedText: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 20,
+    color: mobileTheme.muted,
   },
   errorPanel: {
     borderWidth: 1,

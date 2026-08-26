@@ -14,7 +14,7 @@ interface ScanResult {
   activity_log_id: string;
   activity_id: string;
   activity_name: string;
-  scan_type: "time_in" | "time_out";
+  scan_type: "time_in";
   scanned_at: string;
   time_in: string | null;
   time_out: string | null;
@@ -143,7 +143,6 @@ export default function ScanScreen() {
   }
 
   if (result) {
-    const isTimeIn = result.scan_type === "time_in";
     const scanTime = result.scanned_at;
     const scanDate = new Date(result.scanned_at);
 
@@ -156,9 +155,7 @@ export default function ScanScreen() {
           </View>
           <Text style={styles.successEyebrow}>Activity Logged</Text>
           <Text style={styles.successTitle}>{result.activity_name}</Text>
-          <Text style={styles.successSubtitle}>
-            {isTimeIn ? "TIME IN" : "TIME OUT"} recorded successfully.
-          </Text>
+          <Text style={styles.successSubtitle}>{result.message}</Text>
 
           <View style={styles.successCard}>
             <Text style={styles.successTime}>{formatTimeInTimeZone(scanTime, timezone)}</Text>

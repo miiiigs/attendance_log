@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ButtonSpinner } from "./button-spinner";
 
 export function OrganizationStatusManager({
@@ -12,8 +12,10 @@ export function OrganizationStatusManager({
   currentStatus: "active" | "suspended" | "archived";
 }) {
   const router = useRouter();
+  const [localStatus, setLocalStatus] = useState(currentStatus);
   const [pending, setPending] = useState<"active" | "suspended" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRoutePending, startTransition] = useTransition();
 
   async function updateStatus(nextStatus: "active" | "suspended") {
     const confirmed = window.confirm(
@@ -45,8 +47,11 @@ export function OrganizationStatusManager({
       return;
     }
 
+    setLocalStatus(nextStatus);
     setPending(null);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   }
 
   return (
@@ -56,7 +61,7 @@ export function OrganizationStatusManager({
           type="button"
           className="admin-button-secondary"
           onClick={() => updateStatus("active")}
-          disabled={currentStatus === "active" || pending !== null}
+          disabled={localStatus === "active" || pending !== null || isRoutePending}
           aria-busy={pending === "active"}
         >
           {pending === "active" ? (
@@ -72,7 +77,7 @@ export function OrganizationStatusManager({
           type="button"
           className="admin-button-warning"
           onClick={() => updateStatus("suspended")}
-          disabled={currentStatus === "suspended" || pending !== null}
+          disabled={localStatus === "suspended" || pending !== null || isRoutePending}
           aria-busy={pending === "suspended"}
         >
           {pending === "suspended" ? (
