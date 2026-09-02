@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { APP_NAME, getFullName } from "@attendance/shared";
+import { OrganizationLogo } from "./organization-logo";
 import { LogoutButton } from "./logout-button";
 
 function OrgShellNav({
@@ -43,9 +44,10 @@ function OrgShellNav({
     <div className="flex h-full flex-col bg-[var(--sidebar)] text-white">
       <div className="flex items-center justify-between px-5 pb-6 pt-7">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] text-sm font-bold tracking-[0.18em] text-white">
-            {organizationCode.slice(0, 2)}
-          </div>
+          <OrganizationLogo
+            organization={{ name: organizationName, code: organizationCode, slug }}
+            size={44}
+          />
           <div>
             <p className="max-w-[160px] text-[12px] font-semibold leading-[1.2] tracking-tight text-white">
               {organizationName}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Building2, ClipboardList, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCircle2, X } from "lucide-react";
 import { ADMIN_PORTAL_NAME, APP_NAME, getFullName } from "@attendance/shared";
+import { AppLogo } from "./app-logo";
 import { LogoutButton } from "./logout-button";
 
 const navigation = [
@@ -16,9 +17,7 @@ const navigation = [
 function Wordmark() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] text-sm font-bold tracking-[0.18em] text-white">
-        AL
-      </div>
+      <AppLogo size={44} />
       <div>
         <p className="text-sm font-semibold text-white">{APP_NAME}</p>
         <p className="mt-1 text-[11px] leading-none text-[rgba(255,255,255,0.42)]">{ADMIN_PORTAL_NAME}</p>

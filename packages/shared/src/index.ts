@@ -6,4 +6,5 @@ export * from "./schemas/settings";
 export * from "./types/domain";
 export * from "./utils/account";
 export * from "./utils/attendance";
+export * from "./utils/branding";
 export * from "./utils/realtime";

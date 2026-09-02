@@ -1,6 +1,7 @@
 import { Building2, ClipboardCheck, ShieldCheck } from "lucide-react";
 import { APP_NAME } from "@attendance/shared";
 import { ApplicationForm } from "../../components/application-form";
+import { AppLogo } from "../../components/app-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,14 @@ export default function ApplyPage() {
   return (
     <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex items-center gap-3">
+          <AppLogo size={44} />
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">{APP_NAME}</p>
+            <p className="text-xs text-[var(--muted)]">Organization workspace application</p>
+          </div>
+        </header>
+
         <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           <div className="admin-card overflow-hidden p-6 sm:p-8">
             <p className="admin-eyebrow">Apply for Access</p>

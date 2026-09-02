@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowRight, Building2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { requireAdminOrOrgAdmin } from "../../lib/auth";
 import { createSupabaseServerClient } from "../../lib/supabase/server";
+import { AppLogo } from "../../components/app-logo";
+import { OrganizationLogo } from "../../components/organization-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +33,7 @@ export default async function ChooseOrgPage() {
     <main className="admin-shell-bg min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] text-sm font-bold tracking-[0.18em] text-white">
-            QR
-          </div>
+          <AppLogo size={44} />
           <div>
             <p className="text-sm font-semibold text-[var(--foreground)]">QRLog</p>
             <p className="text-xs text-[var(--muted)]">Choose an organization console</p>
@@ -54,9 +54,7 @@ export default async function ChooseOrgPage() {
                     href={`/org/${organization.slug}/dashboard`}
                     className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-[var(--foreground)] transition hover:bg-[#f3f0e9]"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e8e3d9] text-[var(--accent)]">
-                      <Building2 className="h-5 w-5" />
-                    </div>
+                    <OrganizationLogo organization={organization} size={40} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{organization.name}</p>
                       <p className="text-xs text-[var(--muted)]">{organization.code}</p>
