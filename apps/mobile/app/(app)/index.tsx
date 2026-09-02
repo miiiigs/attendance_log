@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { createRealtimeInvalidationChannel, formatDateInTimeZone, formatTimeInTimeZone, getAttendanceGreeting } from "@attendance/shared";
 import { MobileCard, MobileShell, MobileSoftCard, MobileStatusChip, mobileTheme } from "../../components/mobile-ui";
+import { OrganizationLogo } from "../../components/branding";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { getOrgTimezone } from "../../lib/config";
@@ -280,9 +281,7 @@ export default function ActivityHomeScreen() {
         <View style={styles.headerAccent} />
         <View style={styles.headerBody}>
           <View style={styles.headerTopRow}>
-            <View style={styles.headerLogoWrap}>
-              <Text style={styles.headerLogoText}>{organization.code.slice(0, 2)}</Text>
-            </View>
+            <OrganizationLogo organization={organization} size={48} />
             <View style={styles.headerTitleWrap}>
               <Text style={styles.headerSystemName}>{organization.name}</Text>
               <Text style={styles.headerOrganization}>{organization.code} · QRLog</Text>
@@ -476,19 +475,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-  },
-  headerLogoWrap: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-    backgroundColor: mobileTheme.accentSoft,
-  },
-  headerLogoText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: mobileTheme.accent,
   },
   headerTitleWrap: {
     flex: 1,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ADMIN_PORTAL_NAME, APP_NAME } from "@attendance/shared";
+import { AppLogo } from "../../../components/app-logo";
 import { LoginForm } from "../../../components/login-form";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
@@ -21,9 +22,7 @@ export default async function LoginPage() {
       <div className="flex min-h-screen">
         <section className="hidden w-[24rem] shrink-0 flex-col justify-between bg-[var(--sidebar)] px-12 py-12 text-white lg:flex">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.08)] text-sm font-bold tracking-[0.18em] text-white">
-              QR
-            </div>
+            <AppLogo size={48} />
             <div>
               <p className="max-w-[220px] text-sm font-semibold leading-tight">{APP_NAME}</p>
               <p className="mt-1 text-[11px] leading-none text-[rgba(255,255,255,0.36)]">{ADMIN_PORTAL_NAME}</p>
@@ -47,9 +46,7 @@ export default async function LoginPage() {
         <section className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
             <div className="mb-10 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--surface)] text-sm font-bold tracking-[0.18em] text-[var(--foreground)] shadow-[0_10px_24px_rgba(22,24,29,0.08)]">
-                QR
-              </div>
+              <AppLogo size={44} />
               <div>
                 <p className="text-sm font-semibold text-[var(--foreground)]">{ADMIN_PORTAL_NAME}</p>
                 <p className="text-xs text-[var(--muted)]">{APP_NAME}</p>

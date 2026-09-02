@@ -15,6 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import { organizationLoginSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
+import { AppLogo } from "../../components/branding";
 import { supabase } from "../../lib/supabase/client";
 import { getAdminAppUrl } from "../../lib/config";
 import type { LoginContextPayload } from "../../providers/auth-provider";
@@ -140,9 +141,7 @@ export default function LoginScreen() {
           bounces={false}
         >
           <View style={styles.brandBlock}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandMarkText}>QR</Text>
-            </View>
+            <AppLogo size={84} style={styles.brandMark} />
             <Text style={styles.brandTitle}>QRLog</Text>
             <Text style={styles.brandSubtitle}>Scan. Log. Done.</Text>
           </View>
@@ -253,19 +252,8 @@ const styles = StyleSheet.create({
     marginBottom: 44,
   },
   brandMark: {
-    width: 84,
-    height: 84,
-    alignItems: "center",
-    justifyContent: "center",
+    alignSelf: "center",
     marginBottom: 16,
-    borderRadius: 24,
-    backgroundColor: mobileTheme.accent,
-  },
-  brandMarkText: {
-    color: mobileTheme.white,
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: 2,
   },
   brandTitle: {
     fontSize: 30,
@@ -273,12 +261,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.8,
+    textAlign: "center",
   },
   brandSubtitle: {
     marginTop: 10,
     fontSize: 15,
     color: mobileTheme.muted,
     fontWeight: "500",
+    textAlign: "center",
   },
   form: {
     gap: 16,

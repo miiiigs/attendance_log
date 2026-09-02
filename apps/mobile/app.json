@@ -10,13 +10,13 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "QRLog uses the camera to scan time in and time out QR codes."
+        "NSCameraUsageDescription": "QRLog uses the camera to scan activity QR codes and record your Time In."
       }
     },
     "android": {
       "package": "com.miguelleysa.qrlog",
       "adaptiveIcon": {
-        "backgroundColor": "#166534",
+        "backgroundColor": "#FBF4E4",
         "foregroundImage": "./assets/images/qrlog-adaptive-foreground.png"
       },
       "predictiveBackGestureEnabled": false
