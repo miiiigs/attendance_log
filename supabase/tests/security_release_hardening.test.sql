@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(31);
+select plan(39);
 
 insert into public.organizations (id, name, code, slug, status, timezone) values
   ('bbbbbbb1-0000-0000-0000-000000000001', 'Security Org', 'SECA', 'security-org', 'active', 'Asia/Manila')
@@ -20,7 +20,9 @@ insert into auth.users (
 )
 select * from (values
   ('10000000-0000-0000-0000-000000000001'::uuid, 'authenticated'::text, 'authenticated'::text, 'security-admin@example.com'::text, 'x'::text, now(), now(), now()),
-  ('10000000-0000-0000-0000-000000000002'::uuid, 'authenticated'::text, 'authenticated'::text, 'security-member@example.com'::text, 'x'::text, now(), now(), now())
+  ('10000000-0000-0000-0000-000000000002'::uuid, 'authenticated'::text, 'authenticated'::text, 'security-member@example.com'::text, 'x'::text, now(), now(), now()),
+  ('10000000-0000-0000-0000-000000000003'::uuid, 'authenticated'::text, 'authenticated'::text, 'security-orgadmin@example.com'::text, 'x'::text, now(), now(), now()),
+  ('10000000-0000-0000-0000-000000000004'::uuid, 'authenticated'::text, 'authenticated'::text, 'security-newmember@example.com'::text, 'x'::text, now(), now(), now())
 ) as v (id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 on conflict (id) do nothing;
 
@@ -35,7 +37,9 @@ insert into public.profiles (
   platform_role
 ) values
   ('10000000-0000-0000-0000-000000000001', 'secadmin', 'Security', 'Admin', 'security-admin@example.com', 'person', 'active', 'platform_admin'),
-  ('10000000-0000-0000-0000-000000000002', 'secmember', 'Security', 'Member', 'security-member@example.com', 'person', 'active', 'user')
+  ('10000000-0000-0000-0000-000000000002', 'secmember', 'Security', 'Member', 'security-member@example.com', 'person', 'active', 'user'),
+  ('10000000-0000-0000-0000-000000000003', 'secorgadmin', 'Security', 'Org Admin', 'security-orgadmin@example.com', 'person', 'active', 'user'),
+  ('10000000-0000-0000-0000-000000000004', 'secnewmember', 'Security', 'New Member', 'security-newmember@example.com', 'person', 'active', 'user')
 on conflict (id) do nothing;
 
 insert into public.organization_memberships (
@@ -46,7 +50,8 @@ insert into public.organization_memberships (
   status
 ) values
   ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '260000001', 'organization_admin', 'active'),
-  ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '260000002', 'member', 'active')
+  ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '260000002', 'member', 'active'),
+  ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'SECA_admin_1', 'organization_admin', 'active')
 on conflict (organization_id, user_id) do nothing;
 
 select ok(
@@ -132,7 +137,7 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.create_activity(text)', 'execute'),
+  not has_function_privilege('anon', 'public.create_activity(text, uuid)', 'execute'),
   'anon cannot execute create_activity'
 );
 
@@ -246,6 +251,83 @@ select throws_ok(
   'P0001',
   'Only organization administrators can generate usernames.',
   'plain member still cannot generate membership usernames'
+);
+
+-- ---------------------------------------------------------------------------
+-- Release audit regression coverage
+-- ---------------------------------------------------------------------------
+
+-- Switch to the real API role so RLS (not just grants) is exercised.
+set role authenticated;
+
+-- An authenticated client can never modify the role columns on profiles.
+select ok(
+  not has_column_privilege('authenticated', 'public.profiles', 'platform_role', 'update'),
+  'authenticated cannot update profiles.platform_role'
+);
+
+select ok(
+  not has_column_privilege('authenticated', 'public.profiles', 'role', 'update'),
+  'authenticated cannot update profiles.role'
+);
+
+-- Use a non-platform organization admin (0003) for the membership/activity RLS
+-- checks so they prove tenant-admin behavior, not platform-admin behavior.
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000003', true);
+
+-- Organization admins cannot fabricate administrator memberships directly.
+select throws_ok(
+  $$ insert into public.organization_memberships (organization_id, user_id, username, role, status)
+     values ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'FABRICATED_admin_99', 'organization_admin', 'active'); $$,
+  '42501',
+  NULL,
+  'organization admin cannot insert an organization_admin membership'
+);
+
+-- Organization admins can still create member memberships in their own org.
+select lives_ok(
+  $$ insert into public.organization_memberships (organization_id, user_id, username, role, status)
+     values ('bbbbbbb1-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'SECA_0001', 'member', 'active'); $$,
+  'organization admin can still insert a member membership'
+);
+
+-- An organization admin cannot update an existing membership to an admin role.
+select throws_ok(
+  $$ update public.organization_memberships
+     set role = 'organization_admin'
+     where organization_id = 'bbbbbbb1-0000-0000-0000-000000000001'
+       and user_id = '10000000-0000-0000-0000-000000000002'; $$,
+  '42501',
+  NULL,
+  'organization admin cannot promote a membership through the Data API'
+);
+
+-- create_activity targets the explicitly supplied organization.
+select lives_ok(
+  $$ select * from public.create_activity('Scoped Activity', 'bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  'organization admin can create an activity for an explicit organization'
+);
+
+select is(
+  (
+    select organization_id
+    from public.activities
+    where name = 'Scoped Activity'
+    order by created_at desc
+    limit 1
+  ),
+  'bbbbbbb1-0000-0000-0000-000000000001',
+  'create_activity honors the explicit target organization'
+);
+
+-- A plain member cannot create activities at all.
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
+
+select throws_ok(
+  $$ select * from public.create_activity('Sneaky', 'bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  'P0001',
+  'Only organization administrators can create activities.',
+  'plain member cannot create activities'
 );
 
 select * from finish();

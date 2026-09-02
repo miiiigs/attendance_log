@@ -56,8 +56,13 @@ historical rows scoped by `organization_id`.
 3. validates the QR session (active, not expired/revoked) and that it belongs to the caller's organization
 4. validates the Activity is active and belongs to that organization
 5. locks on `(activity_id, membership_id)` (advisory lock + row locks)
-6. first scan => time in, second scan => time out, third scan => rejected
+6. the scan is time-in only; a member already timed in is rejected with guidance to
+   use `leave_activity`, and a completed log is rejected outright
 7. writes the activity log and an activity scan audit row
+
+Members record their Time Out with `leave_activity`; ending an Activity
+(`end_activity`) auto-completes still-open participants using the same timestamp as
+`activities.ended_at`.
 
 ## Username Generation
 

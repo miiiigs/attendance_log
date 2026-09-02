@@ -63,10 +63,13 @@ memberships, they land on a neutral `/choose-org` page instead of auto-selecting
 3. The raw QR token is returned once and kept in an httpOnly admin cookie for display;
    the database stores only the token hash.
 4. A member scans the QR with the mobile app. `scan_activity` resolves the membership,
-   validates the QR/activity/organization, and records Time In (first scan) or Time Out
-   (second scan); a third scan is rejected.
-5. Ending an Activity revokes its QR sessions and marks it ended; history is preserved
-   and time-outs are never fabricated.
+   validates the QR/activity/organization, and records Time In on the first (and only)
+   successful scan; any further scan is rejected with guidance to use Leave Activity.
+5. The member records Time Out with `leave_activity` (the only way to complete
+   participation from the member side). Ending an Activity revokes its QR sessions,
+   marks it ended, and auto-completes still-open participants with the same timestamp
+   used for `activities.ended_at`; time-outs are never fabricated for members who
+   never scanned.
 
 Concurrency is keyed on `(activity_id, membership_id)` via advisory locks; a member may
 participate in multiple Activities on the same calendar date.
