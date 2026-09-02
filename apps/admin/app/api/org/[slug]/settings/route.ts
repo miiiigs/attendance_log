@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireOrgAdminApiContext } from "../../../../../lib/org-auth";
+import { createSupabaseServiceClient } from "../../../../../lib/supabase/service";
 
 const orgSettingsSchema = z.object({
   name: z.string().trim().min(2, "Organization name is required.").max(160, "Organization name is too long."),
@@ -23,7 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid settings payload." }, { status: 400 });
   }
 
-  const supabase = adminContext.supabase;
+  const supabase = createSupabaseServiceClient();
 
   const { error } = await supabase
     .from("organizations")

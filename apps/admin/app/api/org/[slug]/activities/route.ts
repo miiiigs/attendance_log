@@ -29,6 +29,7 @@ export async function POST(
 
   const { data: activity, error: createError } = await supabase.rpc("create_activity", {
     activity_name: parsed.data.name,
+    target_organization_id: adminContext.organization.id,
   });
 
   if (createError || !activity) {

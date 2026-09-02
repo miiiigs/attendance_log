@@ -28,7 +28,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-camera",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "QRLog uses the camera to scan activity QR codes and record your Time In.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
       [
         "expo-splash-screen",
         {
