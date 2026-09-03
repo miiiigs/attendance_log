@@ -9,6 +9,7 @@ export default function JoinCommunityScreen() {
   const router = useRouter();
   const { isGuest, isRegistered, refreshSessionContext } = useAuth();
   const [code, setCode] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,11 @@ export default function JoinCommunityScreen() {
       return;
     }
 
+    if (!displayName.trim()) {
+      setError("Enter your display name in this Community.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -27,6 +33,7 @@ export default function JoinCommunityScreen() {
     try {
       const { data, error: rpcError } = await supabase.rpc("join_organization_by_code", {
         community_code: trimmed,
+        community_display_name: displayName.trim(),
       });
 
       if (rpcError) {
@@ -41,10 +48,11 @@ export default function JoinCommunityScreen() {
       await refreshSessionContext();
       setSuccess(`You joined ${result.organization_name ?? "the Community"} as a member.`);
       setCode("");
+      setDisplayName("");
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Unable to join the Community.";
-      if (message === "Create an account before joining a Community.") {
-        setError("You need a registered account to join a Community. Register first to keep your activity history.");
+      if (message === "Create an account and verify your email before joining a Community.") {
+        setError("You need a registered, verified account to join a Community. Register first to keep your activity history.");
       } else {
         setError(message);
       }
@@ -60,7 +68,7 @@ export default function JoinCommunityScreen() {
       {isGuest ? (
         <MobileSoftCard style={styles.registerCard}>
           <Text style={styles.registerTitle}>Create an account to join</Text>
-          <Text style={styles.registerText}>Joining a Community requires a registered email account. Register to keep your activity history.</Text>
+          <Text style={styles.registerText}>Joining a Community requires a registered, verified email account. Register to keep your activity history.</Text>
           <Pressable onPress={() => router.push("/register")} style={({ pressed }) => [styles.registerButton, pressed ? styles.pressed : null]}>
             <Text style={styles.registerButtonText}>Register</Text>
           </Pressable>
@@ -77,6 +85,19 @@ export default function JoinCommunityScreen() {
               autoCapitalize="characters"
               autoCorrect={false}
               placeholder="e.g. SCPPA"
+              placeholderTextColor={mobileTheme.mutedSoft}
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Display name in this Community</Text>
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              placeholder="How you will appear to members"
               placeholderTextColor={mobileTheme.mutedSoft}
               style={styles.input}
             />

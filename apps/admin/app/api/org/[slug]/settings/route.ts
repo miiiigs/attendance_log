@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "../../../../../lib/supabase/service
 const orgSettingsSchema = z.object({
   name: z.string().trim().min(2, "Organization name is required.").max(160, "Organization name is too long."),
   timezone: z.string().trim().min(2, "Timezone is required.").max(120, "Timezone is too long."),
+  description: z.string().trim().max(1000, "Description is too long.").optional(),
 });
 
 export async function PATCH(
@@ -31,6 +32,7 @@ export async function PATCH(
     .update({
       name: parsed.data.name,
       timezone: parsed.data.timezone,
+      description: parsed.data.description === undefined ? null : parsed.data.description || null,
     })
     .eq("id", adminContext.organization.id);
 

@@ -86,6 +86,7 @@ describe("PATCH /api/org/[slug]/settings", () => {
     expect(serviceSupabase.update).toHaveBeenCalledWith({
       name: "South Cotabato Parole and Probation Administration",
       timezone: "Asia/Manila",
+      description: null,
     });
     expect(serviceSupabase.eq).toHaveBeenCalledWith("id", "org-1");
   });

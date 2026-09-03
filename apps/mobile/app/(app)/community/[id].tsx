@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { formatDateInTimeZone } from "@attendance/shared";
-import { MobileCard, MobileHeading, MobileShell, MobileStatusChip, mobileTheme } from "../../../components/mobile-ui";
+import { formatDateInTimeZone, getDisplayName } from "@attendance/shared";
+import { MobileCard, MobileHeading, MobileLabel, MobileShell, MobileStatusChip, mobileTheme } from "../../../components/mobile-ui";
 import { OrganizationLogo } from "../../../components/branding";
 import { useAuth } from "../../../providers/auth-provider";
 import { supabase } from "../../../lib/supabase/client";
@@ -20,7 +20,7 @@ interface CommunityActivity {
 export default function CommunityPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { memberships } = useAuth();
+  const { profile, memberships } = useAuth();
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +28,11 @@ export default function CommunityPage() {
   const membership = memberships.find((item) => item.organizationId === id);
   const isAdmin = membership?.role === "organization_admin";
   const timezone = getOrgTimezone(membership?.organization.timezone);
+  const memberDisplayName =
+    membership?.displayName ??
+    getDisplayName(profile?.firstName, profile?.lastName, profile?.displayName) ??
+    membership?.username ??
+    "Member";
 
   useEffect(() => {
     if (!id) {
@@ -84,9 +89,14 @@ export default function CommunityPage() {
         <OrganizationLogo organization={membership.organization} size={56} />
         <View style={styles.identityBody}>
           <Text style={styles.identityName}>{membership.organization.name}</Text>
-          <Text style={styles.identityRole}>{isAdmin ? "Community Admin" : "Member"}</Text>
+          <Text style={styles.identityRole}>{isAdmin ? "Community Admin" : "Member"} · {memberDisplayName}</Text>
         </View>
       </View>
+
+      <MobileCard>
+        <MobileLabel>About this Community</MobileLabel>
+        <Text style={styles.description}>{membership.organization.description || "No description has been added yet."}</Text>
+      </MobileCard>
 
       {isAdmin ? (
         <Pressable
@@ -151,6 +161,12 @@ const styles = StyleSheet.create({
   identityRole: {
     marginTop: 3,
     fontSize: 13,
+    color: mobileTheme.muted,
+  },
+  description: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 22,
     color: mobileTheme.muted,
   },
   createButton: {

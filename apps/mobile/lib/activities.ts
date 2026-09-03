@@ -53,9 +53,12 @@ export async function loadMyActivities(userId: string): Promise<{ joined: Activi
     activities = new Map((data ?? []).map((activity) => [activity.id, activity]));
   }
 
+  // Community names must resolve from the UNION of joined and created
+  // activities, otherwise a joined Community activity would fall back to
+  // the "Public" label.
   const organizationIds = Array.from(
     new Set(
-      (createdActivities ?? [])
+      [...activities.values()]
         .map((activity) => activity.organization_id)
         .filter((id): id is string => Boolean(id)),
     ),

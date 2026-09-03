@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import ViewShot, { captureRef, type ViewShotRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import { MobileHeading, MobileShell, MobileSoftCard, mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
@@ -33,6 +35,8 @@ export default function CreateActivityScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CreatedResult | null>(null);
+  const qrCardRef = useRef<ViewShotRef | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const selectedAdminCommunity = administered.find((membership) => membership.organizationId === ownership);
 
@@ -111,11 +115,29 @@ export default function CreateActivityScreen() {
     }
   }
 
-  async function shareQr() {
-    if (!result) {
+  async function shareQrImage() {
+    if (!result || !qrCardRef.current) {
       return;
     }
-    await Share.share({ message: `Join "${result.activityName}" on QRLog — scan this QR or open the link: attendance://${result.token}` }).catch(() => undefined);
+
+    setSharing(true);
+    try {
+      const uri = await captureRef(qrCardRef, {
+        format: "png",
+        quality: 1,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share activity QR",
+        });
+      }
+    } catch {
+      // Sharing is best-effort; ignore and let the user dismiss the screen.
+    } finally {
+      setSharing(false);
+    }
   }
 
   if (isGuest) {
@@ -137,16 +159,24 @@ export default function CreateActivityScreen() {
     return (
       <MobileShell route="/">
         <MobileHeading eyebrow="QRLog" title="Activity Created" subtitle={result.source} />
-        <View style={styles.resultCard}>
+        <ViewShot ref={qrCardRef} options={{ format: "png", quality: 1 }} style={styles.resultCard}>
+          <Text style={styles.resultBrand}>QRLog</Text>
           <Text style={styles.resultName}>{result.activityName}</Text>
           <Text style={styles.resultSource}>{result.source}</Text>
           <View style={styles.qrWrap}>
             <QRCode value={`attendance://${result.token}`} size={200} color="#123b32" backgroundColor="#ffffff" />
           </View>
           <Text style={styles.resultNote}>Scan. Log. Done.</Text>
-        </View>
-        <Pressable onPress={shareQr} style={({ pressed }) => [styles.button, pressed ? styles.pressed : null]}>
-          <Text style={styles.buttonText}>Share QR</Text>
+        </ViewShot>
+        <Pressable onPress={() => shareQrImage().catch(() => undefined)} disabled={sharing} style={({ pressed }) => [styles.button, pressed && !sharing ? styles.pressed : null, sharing ? styles.buttonDisabled : null]}>
+          {sharing ? (
+            <View style={styles.buttonInner}>
+              <ActivityIndicator color={mobileTheme.white} />
+              <Text style={styles.buttonText}>Preparing…</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Share / Save QR Image</Text>
+          )}
         </Pressable>
         <Pressable onPress={() => router.replace("/")} style={({ pressed }) => [styles.secondaryButton, pressed ? styles.pressed : null]}>
           <Text style={styles.secondaryButtonText}>Done</Text>
@@ -336,10 +366,17 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: mobileTheme.border,
-    backgroundColor: mobileTheme.panel,
+    backgroundColor: "#FFFFFF",
     padding: 22,
     alignItems: "center",
     gap: 12,
+  },
+  resultBrand: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+    color: mobileTheme.accent,
   },
   resultName: {
     fontSize: 18,

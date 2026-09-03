@@ -382,7 +382,7 @@ export async function getOrgSettings(orgId: string) {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, code, slug, timezone, status")
+    .select("id, name, code, slug, timezone, status, description")
     .eq("id", orgId)
     .maybeSingle();
 

@@ -10,6 +10,7 @@ export interface OrganizationContext {
   slug: string;
   name: string;
   timezone: string;
+  description: string | null;
 }
 
 export interface MembershipContext {
@@ -18,6 +19,7 @@ export interface MembershipContext {
   username: string;
   role: string;
   status: string;
+  displayName: string | null;
   organizationId: string;
   organization: OrganizationContext;
 }
@@ -61,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle(),
       supabase
         .from("organization_memberships")
-        .select("id, user_id, username, role, status, organization_id, organizations(id, name, code, slug, timezone, status)")
+        .select("id, user_id, username, role, status, display_name, organization_id, organizations(id, name, code, slug, timezone, status, description)")
         .eq("user_id", userId)
         .eq("status", "active"),
     ]);
@@ -92,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           username: membership.username,
           role: membership.role,
           status: membership.status,
+          displayName: membership.display_name ?? null,
           organizationId: membership.organization_id,
           organization: {
             id: organization.id,
@@ -99,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             slug: organization.slug,
             name: organization.name,
             timezone: organization.timezone,
+            description: organization.description ?? null,
           },
         };
       })

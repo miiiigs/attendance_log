@@ -16,7 +16,7 @@ export default async function OrgSettingsPage({
       <div>
         <p className="admin-eyebrow">{organization.code}</p>
         <h1 className="admin-page-title mt-3">Settings</h1>
-        <p className="admin-page-subtitle mt-2">Organization-level settings for {organization.name}.</p>
+        <p className="admin-page-subtitle mt-2">Community-level settings for {organization.name}.</p>
       </div>
 
       {settings ? (
