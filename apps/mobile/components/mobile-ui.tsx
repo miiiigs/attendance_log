@@ -41,14 +41,16 @@ export const mobileTheme = {
   white: "#FFFFFF",
 } as const;
 
-type MainRoute = "/" | "/history" | "/profile";
+type MainRoute = "/" | "/activities" | "/scan" | "/communities" | "/profile";
 type NavRoute = MainRoute;
 type ChipTone = "success" | "warning" | "danger" | "neutral" | "info";
 type StatTone = "success" | "warning" | "neutral";
 
 const navItems: Array<{ route: NavRoute; label: string }> = [
   { route: "/", label: "Home" },
-  { route: "/history", label: "History" },
+  { route: "/activities", label: "Activities" },
+  { route: "/scan", label: "Scan" },
+  { route: "/communities", label: "Communities" },
   { route: "/profile", label: "Profile" },
 ];
 
@@ -170,11 +172,31 @@ function NavGlyph({ route, active }: { route: NavRoute; active: boolean }) {
     );
   }
 
-  if (route === "/history") {
+  if (route === "/activities") {
     return (
       <View style={[glyphStyles.clock, { borderColor: tone }]}>
         <View style={[glyphStyles.clockHandVertical, { backgroundColor: tone }]} />
         <View style={[glyphStyles.clockHandHorizontal, { backgroundColor: tone }]} />
+      </View>
+    );
+  }
+
+  if (route === "/scan") {
+    return (
+      <View style={glyphStyles.qr}>
+        <View style={[glyphStyles.qrCorner, glyphStyles.qrCornerTL, { borderColor: tone }]} />
+        <View style={[glyphStyles.qrCorner, glyphStyles.qrCornerTR, { borderColor: tone }]} />
+        <View style={[glyphStyles.qrCorner, glyphStyles.qrCornerBL, { borderColor: tone }]} />
+        <View style={[glyphStyles.qrCorner, glyphStyles.qrCornerBR, { borderColor: tone }]} />
+      </View>
+    );
+  }
+
+  if (route === "/communities") {
+    return (
+      <View style={glyphStyles.communities}>
+        <View style={[glyphStyles.communityDot, glyphStyles.communityDotLeft, { backgroundColor: tone }]} />
+        <View style={[glyphStyles.communityDot, glyphStyles.communityDotRight, { backgroundColor: tone }]} />
       </View>
     );
   }
@@ -662,6 +684,64 @@ const glyphStyles = StyleSheet.create({
     borderRadius: 999,
     left: 7,
     top: 7,
+  },
+  qr: {
+    width: 16,
+    height: 16,
+    position: "relative",
+  },
+  qrCorner: {
+    position: "absolute",
+    width: 6,
+    height: 6,
+    borderWidth: 1.5,
+  },
+  qrCornerTL: {
+    left: 0,
+    top: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    borderRadius: 2,
+  },
+  qrCornerTR: {
+    right: 0,
+    top: 0,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+    borderRadius: 2,
+  },
+  qrCornerBL: {
+    left: 0,
+    bottom: 0,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderRadius: 2,
+  },
+  qrCornerBR: {
+    right: 0,
+    bottom: 0,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    borderRadius: 2,
+  },
+  communities: {
+    width: 16,
+    height: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  communityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+  },
+  communityDotLeft: {
+    opacity: 0.55,
+  },
+  communityDotRight: {
+    opacity: 0.95,
   },
   profile: {
     width: 16,

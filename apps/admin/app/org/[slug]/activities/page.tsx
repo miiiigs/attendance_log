@@ -81,6 +81,7 @@ export default async function OrgActivitiesPage({
               <thead>
                 <tr>
                   <th>Activity</th>
+                  <th>Access</th>
                   <th>Date</th>
                   <th>Started</th>
                   <th>Ended</th>
@@ -93,6 +94,11 @@ export default async function OrgActivitiesPage({
                 {result.activities.map((activity) => (
                   <tr key={activity.id} className="admin-table-row">
                     <td className="font-medium text-[var(--foreground)]">{activity.name}</td>
+                    <td>
+                      <span className="admin-chip admin-chip-soft capitalize">
+                        {activity.visibility === "anyone_with_code" ? "Anyone with code" : "Members only"}
+                      </span>
+                    </td>
                     <td className="text-xs text-[var(--muted)]">
                       {new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone }).format(
                         new Date(activity.startedAt),

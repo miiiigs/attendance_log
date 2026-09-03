@@ -14,6 +14,7 @@ export function OrgSettingsForm({
     name: string;
     code: string;
     timezone: string;
+    description: string | null;
   };
 }) {
   const router = useRouter();
@@ -25,9 +26,10 @@ export function OrgSettingsForm({
   async function handleSubmit(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim();
     const timezone = String(formData.get("timezone") ?? "").trim();
+    const description = String(formData.get("description") ?? "").trim();
 
     if (!name || !timezone) {
-      setError("Organization name and timezone are required.");
+      setError("Community name and timezone are required.");
       return;
     }
 
@@ -40,7 +42,7 @@ export function OrgSettingsForm({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, timezone }),
+      body: JSON.stringify({ name, timezone, description }),
     });
 
     const result = (await response.json()) as { error?: string };
@@ -51,7 +53,7 @@ export function OrgSettingsForm({
       return;
     }
 
-    setSuccess("Organization settings updated successfully.");
+    setSuccess("Community settings updated successfully.");
     startTransition(() => {
       router.refresh();
     });
@@ -65,18 +67,29 @@ export function OrgSettingsForm({
             <Building2 className="h-4 w-4" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">Organization</h2>
-            <p className="text-xs text-[var(--muted)]">Basic organization details used across the admin side.</p>
+            <h2 className="text-sm font-semibold text-[var(--foreground)]">Community</h2>
+            <p className="text-xs text-[var(--muted)]">Basic Community details shown to members.</p>
           </div>
         </div>
 
         <div className="grid gap-4 px-6 py-5 md:grid-cols-2">
           <label className="block md:col-span-2">
-            <span className="admin-field-label">Organization name</span>
+            <span className="admin-field-label">Community name</span>
             <input name="name" defaultValue={settings.name} className="admin-input" />
           </label>
+          <label className="block md:col-span-2">
+            <span className="admin-field-label">Description</span>
+            <textarea
+              name="description"
+              defaultValue={settings.description ?? ""}
+              placeholder="A short description of this Community shown to members."
+              rows={3}
+              maxLength={1000}
+              className="admin-input resize-none"
+            />
+          </label>
           <label className="block">
-            <span className="admin-field-label">Organization code</span>
+            <span className="admin-field-label">Community code</span>
             <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 font-mono text-sm text-[var(--foreground)]">
               {settings.code}
             </div>
@@ -88,7 +101,7 @@ export function OrgSettingsForm({
           <div className="admin-card-flat flex items-start gap-2.5 px-4 py-3.5 md:col-span-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--muted)]" />
             <p className="text-xs leading-6 text-[var(--muted)]">
-              All dashboard, activity, and QR timestamps for this organization follow this timezone. The organization code is fixed
+              All dashboard, activity, and QR timestamps for this Community follow this timezone. The Community code is fixed
               once approved.
             </p>
           </div>

@@ -8,6 +8,7 @@ import { ButtonSpinner } from "./button-spinner";
 export function StartActivityForm({ slug }: { slug: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [visibility, setVisibility] = useState<"community_only" | "anyone_with_code">("community_only");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isRoutePending, startTransition] = useTransition();
@@ -26,7 +27,7 @@ export function StartActivityForm({ slug }: { slug: string }) {
       const response = await fetch(`/api/org/${slug}/activities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, visibility }),
       });
       const result = (await response.json()) as { error?: string; ok?: boolean };
 
@@ -62,6 +63,32 @@ export function StartActivityForm({ slug }: { slug: string }) {
           className="admin-input"
         />
       </label>
+
+      <div>
+        <span className="admin-field-label">Activity access</span>
+        <div className="mt-2 grid gap-2">
+          <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <input
+              type="radio"
+              name="visibility"
+              value="community_only"
+              checked={visibility === "community_only"}
+              onChange={() => setVisibility("community_only")}
+            />
+            <span className="text-sm font-medium text-[var(--foreground)]">Community members only</span>
+          </label>
+          <label className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <input
+              type="radio"
+              name="visibility"
+              value="anyone_with_code"
+              checked={visibility === "anyone_with_code"}
+              onChange={() => setVisibility("anyone_with_code")}
+            />
+            <span className="text-sm font-medium text-[var(--foreground)]">Anyone with QR/activity code</span>
+          </label>
+        </div>
+      </div>
 
       {error ? (
         <p className="rounded-2xl border border-[#fecaca] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{error}</p>

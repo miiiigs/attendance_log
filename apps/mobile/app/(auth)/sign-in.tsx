@@ -12,53 +12,39 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { organizationLoginSchema } from "@attendance/shared";
+import { emailSignInSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { AppLogo } from "../../components/branding";
 import { supabase } from "../../lib/supabase/client";
-import { getAdminAppUrl } from "../../lib/config";
-import type { LoginContextPayload } from "../../providers/auth-provider";
-import { useAuth } from "../../providers/auth-provider";
 
 const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
-const GENERIC_ERROR = "Invalid organization code, username, or password.";
+const GENERIC_ERROR = "Invalid email or password.";
 
-interface LoginResponse {
-  error?: string;
-  access_token?: string;
-  refresh_token?: string;
-  organization?: LoginContextPayload["organization"];
-  membership?: LoginContextPayload["membership"];
-  profile?: LoginContextPayload["profile"];
-}
-
-function getFriendlyError(reason: unknown, serverError?: string) {
-  if (serverError) {
-    return serverError;
-  }
-
+function getFriendlyError(reason: unknown) {
   if (reason instanceof Error) {
     const message = reason.message.toLowerCase();
     if (message.includes("fetch") || message.includes("network") || message.includes("timeout") || message.includes("econnrefused")) {
       return CONNECTION_ERROR;
     }
+    if (message.includes("invalid login credentials")) {
+      return GENERIC_ERROR;
+    }
+    return reason.message;
   }
 
   return GENERIC_ERROR;
 }
 
-export default function LoginScreen() {
-  const { applyLoginContext } = useAuth();
-  const [organizationCode, setOrganizationCode] = useState("");
-  const [username, setUsername] = useState("");
+export default function SignInScreen() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function handleLogin() {
-    const parsed = organizationLoginSchema.safeParse({ organizationCode, username, password });
+  async function handleSignIn() {
+    const parsed = emailSignInSchema.safeParse({ email, password });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? GENERIC_ERROR);
       return;
@@ -67,60 +53,16 @@ export default function LoginScreen() {
     setLoading(true);
     setError(null);
 
-    let response: Response;
-    try {
-      response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(parsed.data),
-      });
-    } catch (reason) {
-      setError(getFriendlyError(reason));
-      setLoading(false);
-      return;
-    }
-
-    let result: LoginResponse;
-    try {
-      result = (await response.json()) as LoginResponse;
-    } catch {
-      setError(CONNECTION_ERROR);
-      setLoading(false);
-      return;
-    }
-
-    if (
-      !response.ok ||
-      !result.access_token ||
-      !result.refresh_token ||
-      !result.organization ||
-      !result.membership ||
-      !result.profile ||
-      typeof result.profile.status !== "string"
-    ) {
-      setError(result.error ?? GENERIC_ERROR);
-      setLoading(false);
-      return;
-    }
-
-    const { error: sessionError, data } = await supabase.auth.setSession({
-      access_token: result.access_token,
-      refresh_token: result.refresh_token,
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email,
+      password: parsed.data.password,
     });
 
-    if (sessionError || !data.session?.user) {
-      setError(getFriendlyError(sessionError ?? new Error(GENERIC_ERROR)));
+    if (signInError) {
+      setError(getFriendlyError(signInError));
       setLoading(false);
       return;
     }
-
-    await applyLoginContext({
-      organization: result.organization,
-      membership: result.membership,
-      profile: result.profile,
-    });
 
     setLoading(false);
   }
@@ -141,9 +83,9 @@ export default function LoginScreen() {
           bounces={false}
         >
           <View style={styles.brandBlock}>
-            <AppLogo size={84} style={styles.brandMark} />
-            <Text style={styles.brandTitle}>QRLog</Text>
-            <Text style={styles.brandSubtitle}>Scan. Log. Done.</Text>
+            <AppLogo size={72} style={styles.brandMark} />
+            <Text style={styles.brandTitle}>Sign In</Text>
+            <Text style={styles.brandSubtitle}>Use your QRLog account email.</Text>
           </View>
 
           <View style={styles.form}>
@@ -155,28 +97,15 @@ export default function LoginScreen() {
             ) : null}
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Organization Code</Text>
+              <Text style={styles.fieldLabel}>Email</Text>
               <TextInput
-                value={organizationCode}
-                onChangeText={setOrganizationCode}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                autoComplete="organization"
-                placeholder="e.g. ACME"
-                placeholderTextColor={mobileTheme.mutedSoft}
-                style={styles.input}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Username</Text>
-              <TextInput
-                value={username}
-                onChangeText={setUsername}
+                value={email}
+                onChangeText={setEmail}
                 autoCapitalize="none"
                 autoCorrect={false}
-                autoComplete="username"
-                placeholder="Enter your username"
+                autoComplete="email"
+                keyboardType="email-address"
+                placeholder="you@example.com"
                 placeholderTextColor={mobileTheme.mutedSoft}
                 style={styles.input}
               />
@@ -200,7 +129,7 @@ export default function LoginScreen() {
             </View>
 
             <Pressable
-              onPress={handleLogin}
+              onPress={() => handleSignIn().catch(() => undefined)}
               disabled={loading}
               style={({ pressed }) => [
                 styles.button,
@@ -220,6 +149,10 @@ export default function LoginScreen() {
 
             <Link href="./forgot-password" style={styles.forgotPasswordLink}>
               Forgot password?
+            </Link>
+
+            <Link href="./community-sign-in" style={styles.communityLink}>
+              Sign in with a Community code instead
             </Link>
           </View>
         </ScrollView>
@@ -249,23 +182,23 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   brandBlock: {
-    marginBottom: 44,
+    marginBottom: 36,
   },
   brandMark: {
     alignSelf: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   brandTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.8,
     textAlign: "center",
   },
   brandSubtitle: {
-    marginTop: 10,
-    fontSize: 15,
+    marginTop: 8,
+    fontSize: 14,
     color: mobileTheme.muted,
     fontWeight: "500",
     textAlign: "center",
@@ -369,6 +302,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: mobileTheme.accent,
-    marginTop: 2,
+  },
+  communityLink: {
+    alignSelf: "center",
+    fontSize: 13,
+    fontWeight: "700",
+    color: mobileTheme.muted,
   },
 });

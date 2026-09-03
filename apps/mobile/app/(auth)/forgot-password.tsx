@@ -78,7 +78,7 @@ export default function ForgotPasswordScreen() {
             ) : null}
 
             <View style={styles.actions}>
-              <Link href="./login" style={styles.backLink}>
+              <Link href="./sign-in" style={styles.backLink}>
                 Back to sign in
               </Link>
               <Pressable

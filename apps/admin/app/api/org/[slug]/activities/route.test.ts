@@ -76,6 +76,7 @@ describe("POST /api/org/[slug]/activities", () => {
     expect(supabase.rpc).toHaveBeenCalledWith("create_activity", {
       activity_name: "Morning Seminar",
       target_organization_id: "org-1",
+      visibility: "community_only",
     });
     expect(supabase.rpc).toHaveBeenCalledWith("create_activity_qr_session", {
       target_activity_id: "activity-1",
