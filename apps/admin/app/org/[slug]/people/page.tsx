@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { RealtimeRouteRefresh } from "../../../../components/realtime-route-refresh";
+import { AuthorizedEmailsManager } from "../../../../components/authorized-emails-manager";
 import { getFullName } from "@attendance/shared";
 import { getOrgPeople, type OrgPeopleSort } from "../../../../lib/data/org";
 import { requireOrgAdmin } from "../../../../lib/org-auth";
@@ -171,6 +172,8 @@ export default async function OrgPeoplePage({
           </Link>
         </div>
       </div>
+
+      <AuthorizedEmailsManager slug={slug} />
     </section>
   );
 }

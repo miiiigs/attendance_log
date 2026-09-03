@@ -6,6 +6,7 @@ export interface OrgActivityRow {
   id: string;
   name: string;
   status: "active" | "ended";
+  visibility: string;
   startedAt: string;
   endedAt: string | null;
   loggedCount: number;
@@ -238,7 +239,7 @@ export async function getOrgActivities(
 
   let builder = supabase
     .from("activities")
-    .select("id, name, status, started_at, ended_at, created_at", { count: "exact" })
+    .select("id, name, status, visibility, started_at, ended_at, created_at", { count: "exact" })
     .eq("organization_id", orgId);
 
   if (query) {
@@ -273,6 +274,7 @@ export async function getOrgActivities(
       id: activity.id,
       name: activity.name,
       status: activity.status as "active" | "ended",
+      visibility: activity.visibility,
       startedAt: activity.started_at,
       endedAt: activity.ended_at,
       loggedCount: loggedCounts.get(activity.id) ?? 0,

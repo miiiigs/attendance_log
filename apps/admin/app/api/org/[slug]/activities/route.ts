@@ -7,6 +7,7 @@ const DEFAULT_QR_TTL_SECONDS = 18000;
 
 const startActivitySchema = z.object({
   name: z.string().trim().min(1, "Activity name is required.").max(200, "Activity name is too long."),
+  visibility: z.enum(["community_only", "anyone_with_code"]).default("community_only"),
 });
 
 export async function POST(
@@ -30,6 +31,7 @@ export async function POST(
   const { data: activity, error: createError } = await supabase.rpc("create_activity", {
     activity_name: parsed.data.name,
     target_organization_id: adminContext.organization.id,
+    visibility: parsed.data.visibility,
   });
 
   if (createError || !activity) {
