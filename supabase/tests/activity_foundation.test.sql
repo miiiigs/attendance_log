@@ -205,7 +205,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003
 select throws_ok(
   format('select * from public.scan_activity(%L);', :'qr_token_a2'),
   'P0001',
-  'QR code does not belong to your organization.',
+  'This activity is for Community members only.',
   'member of another organization cannot scan this QR'
 );
 

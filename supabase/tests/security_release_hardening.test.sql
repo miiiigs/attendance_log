@@ -137,7 +137,7 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.create_activity(text, uuid)', 'execute'),
+  not has_function_privilege('anon', 'public.create_activity(text, uuid, public.activity_visibility)', 'execute'),
   'anon cannot execute create_activity'
 );
 
