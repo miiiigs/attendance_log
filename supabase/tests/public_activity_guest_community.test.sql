@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(47);
+select plan(52);
 
 -- ============================================================================
 -- Setup: two Communities and identities modeling real Auth states:
@@ -465,6 +465,54 @@ select throws_ok(
   '23503',
   NULL,
   'activity_scans rejects a membership whose Community does not match the scan organization'
+);
+
+-- ============================================================================
+-- Independent activity FK: Public rows must still reference a real activity
+-- ============================================================================
+select throws_ok(
+  $$ insert into public.activity_logs (organization_id, activity_id, membership_id, user_id, time_in)
+     values (NULL, '99999999-9999-9999-9999-999999999999', NULL, '20000000-0000-0000-0000-000000000005', now()); $$,
+  '23503',
+  NULL,
+  'public activity_logs rejects a nonexistent activity'
+);
+
+select throws_ok(
+  $$ insert into public.activity_scans (organization_id, activity_id, membership_id, user_id, qr_session_id, scan_type, scanned_at)
+     values (NULL, '99999999-9999-9999-9999-999999999999', NULL, '20000000-0000-0000-0000-000000000005', NULL, 'time_in', now()); $$,
+  '23503',
+  NULL,
+  'public activity_scans rejects a nonexistent activity'
+);
+
+select throws_ok(
+  $$ insert into public.qr_sessions (token_hash, valid_from, expires_at, status, organization_id, activity_id)
+     values ('nonexistent-activity-token-hash', now(), now() + interval '1 hour', 'active', NULL, '99999999-9999-9999-9999-999999999999'); $$,
+  '23503',
+  NULL,
+  'public qr_sessions rejects a nonexistent activity'
+);
+
+select lives_ok(
+  format(
+    'insert into public.activity_logs (organization_id, activity_id, membership_id, user_id, time_in) values (NULL, %L, NULL, %L, now());',
+    :'public_activity_id',
+    '20000000-0000-0000-0000-000000000007'
+  ),
+  'a valid public activity_logs row (NULL organization) is accepted'
+);
+
+select lives_ok(
+  format(
+    'insert into public.activity_logs (organization_id, activity_id, membership_id, user_id, time_in) values (%L, %L, (select id from public.organization_memberships where user_id = %L and organization_id = %L), %L, now());',
+    'ccccccc2-0000-0000-0000-000000000002',
+    :'open_activity_id',
+    '20000000-0000-0000-0000-000000000003',
+    'ccccccc2-0000-0000-0000-000000000002',
+    '20000000-0000-0000-0000-000000000003'
+  ),
+  'a valid community activity_logs row is accepted'
 );
 
 -- ============================================================================

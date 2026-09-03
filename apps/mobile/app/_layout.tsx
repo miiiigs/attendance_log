@@ -5,6 +5,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../providers/auth-provider";
+import { deriveAuthState, resolveRouteRedirect } from "../lib/navigation";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -24,7 +25,7 @@ export default function RootLayout() {
 function RootNavigation() {
   const router = useRouter();
   const segments = useSegments();
-  const { loading, session } = useAuth();
+  const { loading, session, isGuest } = useAuth();
 
   useEffect(() => {
     if (loading) {
@@ -34,14 +35,13 @@ function RootNavigation() {
     SplashScreen.hideAsync().catch(() => undefined);
 
     const inAuthGroup = segments[0] === "(auth)";
-    if (!session && !inAuthGroup) {
-      router.replace("/onboarding");
-    }
+    const state = deriveAuthState(Boolean(session), isGuest);
+    const redirect = resolveRouteRedirect(state, inAuthGroup);
 
-    if (session && inAuthGroup) {
-      router.replace("/");
+    if (redirect) {
+      router.replace(redirect);
     }
-  }, [loading, router, segments, session]);
+  }, [loading, router, segments, session, isGuest]);
 
   if (loading) {
     return null;

@@ -86,6 +86,21 @@ create index if not exists activities_org_null_created_idx
 -- ---------------------------------------------------------------------------
 alter table public.qr_sessions alter column organization_id drop not null;
 
+-- Public QR sessions (organization_id NULL) still must reference a real
+-- activity: the composite FK below is MATCH SIMPLE and is skipped when
+-- organization_id is NULL, so add an independent activity_id key.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'qr_sessions_activity_fk'
+  ) then
+    alter table public.qr_sessions
+      add constraint qr_sessions_activity_fk
+      foreign key (activity_id) references public.activities (id);
+  end if;
+end
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 5. activity_logs: key participation on the global user identity
 -- ---------------------------------------------------------------------------
@@ -99,12 +114,13 @@ where logs.membership_id = membership.id
 
 alter table public.activity_logs alter column user_id set not null;
 
--- Add the global identity key. The composite tenant-integrity FKs
--- (activity_logs_activity_org_fk, activity_logs_membership_org_fk) are KEPT:
--- PostgreSQL MATCH SIMPLE treats a NULL column in a composite FK as satisfied,
--- so Public rows (organization_id IS NULL) remain supported while Community
--- rows keep the structural guarantee that activity/membership and organization
--- agree. We only add the new user_id -> profiles key.
+-- Add the global identity key and an independent activity key. The composite
+-- tenant-integrity FKs (activity_logs_activity_org_fk, activity_logs_membership_org_fk)
+-- are KEPT: PostgreSQL MATCH SIMPLE treats a NULL column in a composite FK as
+-- satisfied, so Public rows (organization_id IS NULL) remain supported while
+-- Community rows keep the structural guarantee that activity/membership and
+-- organization agree. The independent activity_id key ensures a Public row
+-- (NULL organization) still references a real activity.
 do $$
 begin
   if not exists (
@@ -113,6 +129,14 @@ begin
     alter table public.activity_logs
       add constraint activity_logs_user_fk
       foreign key (user_id) references public.profiles (id) on delete restrict;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'activity_logs_activity_fk'
+  ) then
+    alter table public.activity_logs
+      add constraint activity_logs_activity_fk
+      foreign key (activity_id) references public.activities (id);
   end if;
 end
 $$;
@@ -141,7 +165,8 @@ where scans.membership_id = membership.id
 alter table public.activity_scans alter column user_id set not null;
 
 -- Keep the composite tenant-integrity FKs (activity_scans_activity_org_fk,
--- activity_scans_membership_org_fk) for the same reason as activity_logs.
+-- activity_scans_membership_org_fk) for the same reason as activity_logs, and
+-- add the independent activity_id key for Public rows.
 do $$
 begin
   if not exists (
@@ -150,6 +175,14 @@ begin
     alter table public.activity_scans
       add constraint activity_scans_user_fk
       foreign key (user_id) references public.profiles (id) on delete restrict;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'activity_scans_activity_fk'
+  ) then
+    alter table public.activity_scans
+      add constraint activity_scans_activity_fk
+      foreign key (activity_id) references public.activities (id);
   end if;
 end
 $$;
