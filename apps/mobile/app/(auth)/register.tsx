@@ -12,76 +12,105 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { registerSchema } from "@attendance/shared";
+import { emailAddressSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
-import { getAdminAppUrl } from "../../lib/config";
 import { useAuth } from "../../providers/auth-provider";
 
 const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
+const EMAIL_TAKEN_ERROR = "This email is already linked to a QRLog account. Sign in to that account instead.";
 
-interface UpgradeResponse {
-  error?: string;
-  access_token?: string;
-  refresh_token?: string;
-}
+type Step = "email" | "verify" | "password";
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { refreshSessionContext, session } = useAuth();
+  const { refreshSessionContext } = useAuth();
+  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleRegister() {
-    const parsed = registerSchema.safeParse({ email, password, confirmPassword });
+  async function handleSubmitEmail() {
+    const parsed = emailAddressSchema.safeParse(email);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a valid email and password.");
-      return;
-    }
-
-    if (!session) {
-      setError("Your session expired. Please start again.");
+      setError(parsed.error.issues[0]?.message ?? "Enter a valid email address.");
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    let response: Response;
-    try {
-      response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-upgrade`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ email: parsed.data.email, password: parsed.data.password }),
-      });
-    } catch {
-      setError(CONNECTION_ERROR);
+    const { error: updateError } = await supabase.auth.updateUser({ email: parsed.data });
+
+    if (updateError) {
+      const message = updateError.message.toLowerCase();
+      if (message.includes("already") || message.includes("exists") || message.includes("registered")) {
+        setError(EMAIL_TAKEN_ERROR);
+      } else {
+        setError(updateError.message || CONNECTION_ERROR);
+      }
       setLoading(false);
       return;
     }
 
-    const result = (await response.json().catch(() => null)) as UpgradeResponse | null;
+    setStep("verify");
+    setLoading(false);
+  }
 
-    if (!response.ok || !result?.access_token || !result?.refresh_token) {
-      setError(result?.error ?? "Unable to register. Please try again.");
+  async function handleCheckVerification() {
+    setLoading(true);
+    setError(null);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setError("Your session expired. Please sign in again.");
       setLoading(false);
       return;
     }
 
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: result.access_token,
-      refresh_token: result.refresh_token,
-    });
+    if (user.email_confirmed_at) {
+      setStep("password");
+      setLoading(false);
+      return;
+    }
 
-    if (sessionError) {
-      setError(sessionError.message);
+    setError("Your email is not verified yet. Click the verification link we sent, then check again.");
+    setLoading(false);
+  }
+
+  async function handleSetPassword() {
+    if (password.length < 10) {
+      setError("Password must be at least 10 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Your passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const { error: passwordError } = await supabase.auth.updateUser({ password });
+
+    if (passwordError) {
+      setError(passwordError.message || "Unable to set your password.");
+      setLoading(false);
+      return;
+    }
+
+    const { error: syncError } = await supabase.rpc("sync_profile_email");
+
+    if (syncError) {
+      setError(syncError.message || "Unable to finish registration.");
       setLoading(false);
       return;
     }
@@ -101,47 +130,60 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <Text style={styles.eyebrow}>Create your account</Text>
-            <Text style={styles.title}>Register</Text>
-            <Text style={styles.subtitle}>Keep your activity history by upgrading to an email account.</Text>
+            <Text style={styles.title}>
+              {step === "email" ? "Register" : step === "verify" ? "Verify your email" : "Set a password"}
+            </Text>
+            <Text style={styles.subtitle}>
+              {step === "email"
+                ? "Upgrade your guest account to a permanent QRLog account without losing your activity history."
+                : step === "verify"
+                  ? `We sent a verification email to ${email}. Confirm your email to continue.`
+                  : "Set a password so you can sign in to your QRLog account."}
+            </Text>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Email address</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                keyboardType="email-address"
-                placeholder="you@example.com"
-                placeholderTextColor={mobileTheme.mutedSoft}
-                style={styles.input}
-              />
-            </View>
+            {step === "email" ? (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Email address</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  keyboardType="email-address"
+                  placeholder="you@example.com"
+                  placeholderTextColor={mobileTheme.mutedSoft}
+                  style={styles.input}
+                />
+              </View>
+            ) : null}
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Password</Text>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                placeholder="At least 10 characters"
-                placeholderTextColor={mobileTheme.mutedSoft}
-                style={styles.input}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Confirm password</Text>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                placeholder="Re-enter your password"
-                placeholderTextColor={mobileTheme.mutedSoft}
-                style={styles.input}
-              />
-            </View>
+            {step === "password" ? (
+              <>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Password</Text>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    placeholder="At least 10 characters"
+                    placeholderTextColor={mobileTheme.mutedSoft}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Confirm password</Text>
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    placeholder="Re-enter your password"
+                    placeholderTextColor={mobileTheme.mutedSoft}
+                    style={styles.input}
+                  />
+                </View>
+              </>
+            ) : null}
 
             {error ? (
               <View style={styles.errorCard}>
@@ -151,27 +193,78 @@ export default function RegisterScreen() {
             ) : null}
 
             <View style={styles.actions}>
-              <Link href="/onboarding" style={styles.backLink}>
-                Back
-              </Link>
-              <Pressable
-                onPress={() => handleRegister().catch(() => undefined)}
-                disabled={loading}
-                style={({ pressed }) => [
-                  styles.submitButton,
-                  pressed && !loading ? styles.submitButtonPressed : null,
-                  loading ? styles.submitButtonDisabled : null,
-                ]}
-              >
-                {loading ? (
-                  <View style={styles.submitInner}>
-                    <ActivityIndicator color={mobileTheme.white} />
-                    <Text style={styles.submitText}>Registering…</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.submitText}>Create account</Text>
-                )}
-              </Pressable>
+              {step === "email" ? (
+                <>
+                  <Link href="/onboarding" style={styles.backLink}>
+                    Back
+                  </Link>
+                  <Pressable
+                    onPress={() => handleSubmitEmail().catch(() => undefined)}
+                    disabled={loading}
+                    style={({ pressed }) => [
+                      styles.submitButton,
+                      pressed && !loading ? styles.submitButtonPressed : null,
+                      loading ? styles.submitButtonDisabled : null,
+                    ]}
+                  >
+                    {loading ? (
+                      <View style={styles.submitInner}>
+                        <ActivityIndicator color={mobileTheme.white} />
+                        <Text style={styles.submitText}>Sending…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.submitText}>Continue</Text>
+                    )}
+                  </Pressable>
+                </>
+              ) : null}
+
+              {step === "verify" ? (
+                <>
+                  <Link href="/sign-in" style={styles.backLink}>
+                    Sign in to an existing account
+                  </Link>
+                  <Pressable
+                    onPress={() => handleCheckVerification().catch(() => undefined)}
+                    disabled={loading}
+                    style={({ pressed }) => [
+                      styles.submitButton,
+                      pressed && !loading ? styles.submitButtonPressed : null,
+                      loading ? styles.submitButtonDisabled : null,
+                    ]}
+                  >
+                    {loading ? (
+                      <View style={styles.submitInner}>
+                        <ActivityIndicator color={mobileTheme.white} />
+                        <Text style={styles.submitText}>Checking…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.submitText}>I&apos;ve verified my email</Text>
+                    )}
+                  </Pressable>
+                </>
+              ) : null}
+
+              {step === "password" ? (
+                <Pressable
+                  onPress={() => handleSetPassword().catch(() => undefined)}
+                  disabled={loading}
+                  style={({ pressed }) => [
+                    styles.submitButton,
+                    pressed && !loading ? styles.submitButtonPressed : null,
+                    loading ? styles.submitButtonDisabled : null,
+                  ]}
+                >
+                  {loading ? (
+                    <View style={styles.submitInner}>
+                      <ActivityIndicator color={mobileTheme.white} />
+                      <Text style={styles.submitText}>Finishing…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.submitText}>Finish registration</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </View>
           </View>
         </ScrollView>

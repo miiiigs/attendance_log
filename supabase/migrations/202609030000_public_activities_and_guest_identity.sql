@@ -50,6 +50,13 @@ alter table public.profiles alter column first_name drop not null;
 alter table public.profiles alter column last_name drop not null;
 alter table public.profiles alter column email drop not null;
 
+-- Community description (internal table remains `organizations`).
+alter table public.organizations add column if not exists description text;
+
+-- Community-scoped preferred display name (distinct from Auth identity and
+-- from the legacy membership username).
+alter table public.organization_memberships add column if not exists display_name text;
+
 -- ---------------------------------------------------------------------------
 -- 3. activities: nullable ownership + explicit visibility
 -- ---------------------------------------------------------------------------
@@ -92,12 +99,12 @@ where logs.membership_id = membership.id
 
 alter table public.activity_logs alter column user_id set not null;
 
--- Replace composite cross-tenant FKs (which cannot express a NULL
--- organization) with simple FKs; tenant consistency is enforced in the
--- SECURITY DEFINER RPCs (the only write path) and by RLS.
-alter table public.activity_logs drop constraint if exists activity_logs_activity_org_fk;
-alter table public.activity_logs drop constraint if exists activity_logs_membership_org_fk;
-
+-- Add the global identity key. The composite tenant-integrity FKs
+-- (activity_logs_activity_org_fk, activity_logs_membership_org_fk) are KEPT:
+-- PostgreSQL MATCH SIMPLE treats a NULL column in a composite FK as satisfied,
+-- so Public rows (organization_id IS NULL) remain supported while Community
+-- rows keep the structural guarantee that activity/membership and organization
+-- agree. We only add the new user_id -> profiles key.
 do $$
 begin
   if not exists (
@@ -106,30 +113,6 @@ begin
     alter table public.activity_logs
       add constraint activity_logs_user_fk
       foreign key (user_id) references public.profiles (id) on delete restrict;
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_logs_activity_fk'
-  ) then
-    alter table public.activity_logs
-      add constraint activity_logs_activity_fk
-      foreign key (activity_id) references public.activities (id);
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_logs_membership_fk'
-  ) then
-    alter table public.activity_logs
-      add constraint activity_logs_membership_fk
-      foreign key (membership_id) references public.organization_memberships (id);
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_logs_organization_fk'
-  ) then
-    alter table public.activity_logs
-      add constraint activity_logs_organization_fk
-      foreign key (organization_id) references public.organizations (id);
   end if;
 end
 $$;
@@ -157,9 +140,8 @@ where scans.membership_id = membership.id
 
 alter table public.activity_scans alter column user_id set not null;
 
-alter table public.activity_scans drop constraint if exists activity_scans_activity_org_fk;
-alter table public.activity_scans drop constraint if exists activity_scans_membership_org_fk;
-
+-- Keep the composite tenant-integrity FKs (activity_scans_activity_org_fk,
+-- activity_scans_membership_org_fk) for the same reason as activity_logs.
 do $$
 begin
   if not exists (
@@ -168,30 +150,6 @@ begin
     alter table public.activity_scans
       add constraint activity_scans_user_fk
       foreign key (user_id) references public.profiles (id) on delete restrict;
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_scans_activity_fk'
-  ) then
-    alter table public.activity_scans
-      add constraint activity_scans_activity_fk
-      foreign key (activity_id) references public.activities (id);
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_scans_membership_fk'
-  ) then
-    alter table public.activity_scans
-      add constraint activity_scans_membership_fk
-      foreign key (membership_id) references public.organization_memberships (id);
-  end if;
-
-  if not exists (
-    select 1 from pg_constraint where conname = 'activity_scans_organization_fk'
-  ) then
-    alter table public.activity_scans
-      add constraint activity_scans_organization_fk
-      foreign key (organization_id) references public.organizations (id);
   end if;
 end
 $$;
@@ -256,12 +214,61 @@ as $$
   );
 $$;
 
+-- Authoritative verified Auth email for the current caller. Returns the
+-- normalized email ONLY when the current Auth identity is a permanent (non
+-- anonymous) user whose email has been confirmed/verified. Otherwise NULL.
+-- This is the sole source of truth for Community authorization and for
+-- registration checks; `profiles.email` is never used for those decisions.
+create or replace function public.current_verified_auth_email()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select lower(btrim(u.email))
+  from auth.users u
+  where u.id = auth.uid()
+    and coalesce(u.is_anonymous, false) = false
+    and u.email is not null
+    and u.email_confirmed_at is not null;
+$$;
+
+-- Copies the caller's verified Auth email into profiles.email (display/cache
+-- data only). Callers can never submit an arbitrary email; this reads the
+-- authoritative Auth state.
+create or replace function public.sync_profile_email()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  verified_email text := public.current_verified_auth_email();
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  if verified_email is null then
+    raise exception 'Verify your email before continuing.';
+  end if;
+
+  update public.profiles
+  set email = verified_email,
+      updated_at = now()
+  where id = current_user_id;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 9. activity RPCs
 -- ---------------------------------------------------------------------------
 
--- Public activity creation: any REGISTERED (non-guest) user. Guests have no
--- profile email, so they are rejected here (guests cannot create activities).
+-- Public activity creation: only a VERIFIED permanent Auth identity (a
+-- registered user) may create activities. Guests and unverified email-link
+-- states are rejected because they have no verified Auth email.
 create or replace function public.create_public_activity(activity_name text)
 returns public.activities
 language plpgsql
@@ -271,6 +278,7 @@ as $$
 declare
   current_user_id uuid := auth.uid();
   profile_row public.profiles;
+  verified_email text;
   result public.activities;
 begin
   if current_user_id is null then
@@ -281,6 +289,11 @@ begin
     raise exception 'Activity name is required.';
   end if;
 
+  verified_email := public.current_verified_auth_email();
+  if verified_email is null then
+    raise exception 'Create an account and verify your email to create activities.';
+  end if;
+
   select * into profile_row
   from public.profiles
   where id = current_user_id
@@ -288,10 +301,6 @@ begin
 
   if not found or profile_row.status <> 'active' then
     raise exception 'Only active users can create activities.';
-  end if;
-
-  if profile_row.email is null then
-    raise exception 'Create an account to create activities.';
   end if;
 
   insert into public.activities (
@@ -896,9 +905,12 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 11. Community join by code (email-authorized)
+-- 11. Community join by code (verified-email-authorized)
 -- ---------------------------------------------------------------------------
-create or replace function public.join_organization_by_code(community_code text)
+create or replace function public.join_organization_by_code(
+  community_code text,
+  community_display_name text
+)
 returns table (
   community_id uuid,
   organization_name text,
@@ -908,7 +920,8 @@ returns table (
   membership_id uuid,
   membership_username text,
   membership_role public.organization_membership_role,
-  membership_status public.account_status
+  membership_status public.account_status,
+  membership_display_name text
 )
 language plpgsql
 security definer
@@ -923,6 +936,8 @@ declare
   next_username text;
   membership_row public.organization_memberships;
   next_sequence integer;
+  verified_email text;
+  resolved_display_name text;
 begin
   if current_user_id is null then
     raise exception 'Authentication required.';
@@ -932,6 +947,20 @@ begin
     raise exception 'Community code is required.';
   end if;
 
+  resolved_display_name := btrim(community_display_name);
+  if resolved_display_name = '' then
+    raise exception 'Display name is required.';
+  end if;
+  if length(resolved_display_name) > 80 then
+    raise exception 'Display name is too long.';
+  end if;
+
+  -- Authorization uses the VERIFIED Auth email only, never profiles.email.
+  verified_email := public.current_verified_auth_email();
+  if verified_email is null then
+    raise exception 'Create an account and verify your email before joining a Community.';
+  end if;
+
   select * into profile_row
   from public.profiles
   where id = current_user_id
@@ -939,10 +968,6 @@ begin
 
   if not found or profile_row.status <> 'active' then
     raise exception 'Your account is inactive.';
-  end if;
-
-  if profile_row.email is null then
-    raise exception 'Create an account before joining a Community.';
   end if;
 
   select * into org_row
@@ -977,15 +1002,16 @@ begin
       existing_membership.id,
       existing_membership.username,
       existing_membership.role,
-      existing_membership.status;
+      existing_membership.status,
+      existing_membership.display_name;
     return;
   end if;
 
-  -- The registered user's verified email must be pre-authorized by an admin.
+  -- The verified email must be pre-authorized by an admin.
   select * into authorization_row
   from public.organization_join_authorizations join_auth
   where join_auth.organization_id = org_row.id
-    and join_auth.normalized_email = lower(btrim(profile_row.email))
+    and join_auth.normalized_email = verified_email
     and join_auth.status = 'pending'
   order by join_auth.created_at asc
   limit 1
@@ -1026,14 +1052,16 @@ begin
     user_id,
     username,
     role,
-    status
+    status,
+    display_name
   )
   values (
     org_row.id,
     current_user_id,
     next_username,
     'member',
-    'active'
+    'active',
+    resolved_display_name
   )
   returning * into membership_row;
 
@@ -1053,7 +1081,8 @@ begin
     membership_row.id,
     membership_row.username,
     membership_row.role,
-    membership_row.status;
+    membership_row.status,
+    membership_row.display_name;
 end;
 $$;
 
@@ -1140,13 +1169,31 @@ revoke all on function public.create_guest_profile(text) from public;
 revoke all on function public.create_guest_profile(text) from anon;
 grant execute on function public.create_guest_profile(text) to authenticated;
 
-revoke all on function public.join_organization_by_code(text) from public;
-revoke all on function public.join_organization_by_code(text) from anon;
-grant execute on function public.join_organization_by_code(text) to authenticated;
+revoke all on function public.join_organization_by_code(text, text) from public;
+revoke all on function public.join_organization_by_code(text, text) from anon;
+grant execute on function public.join_organization_by_code(text, text) to authenticated;
+
+revoke all on function public.current_verified_auth_email() from public;
+revoke all on function public.current_verified_auth_email() from anon;
+grant execute on function public.current_verified_auth_email() to authenticated;
+
+revoke all on function public.sync_profile_email() from public;
+revoke all on function public.sync_profile_email() from anon;
+grant execute on function public.sync_profile_email() to authenticated;
 
 revoke all on function public.has_activity_log(uuid) from public;
 revoke all on function public.has_activity_log(uuid) from anon;
 grant execute on function public.has_activity_log(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 15. profile email is not an authorization credential
+--
+-- Remove `email` from the authenticated Data API write surface so a client can
+-- never rewrite profiles.email (e.g. to impersonate a pre-authorized Community
+-- email). profiles.email is now display/cache data synced from the verified
+-- Auth email by the server-authoritative sync_profile_email() function.
+-- ---------------------------------------------------------------------------
+revoke update (email) on table public.profiles from authenticated;
 
 -- Re-affirm execute grants for re-created activity RPCs.
 revoke all on function public.scan_activity(text) from public;
