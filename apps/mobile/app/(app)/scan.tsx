@@ -8,7 +8,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileSecondaryButton, mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
 import { getOrgTimezone } from "../../lib/config";
-import { useAuth } from "../../providers/auth-provider";
 
 interface ScanResult {
   activity_log_id: string;
@@ -63,13 +62,12 @@ function extractQrToken(data: string) {
 
 export default function ScanScreen() {
   const router = useRouter();
-  const { organization } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannerLocked, setScannerLocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
 
-  const timezone = getOrgTimezone(organization?.timezone);
+  const timezone = getOrgTimezone(undefined);
 
   function handleClose() {
     if (router.canGoBack()) {

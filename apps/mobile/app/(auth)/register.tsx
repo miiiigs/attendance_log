@@ -1,35 +1,93 @@
 import { useState } from "react";
-import { Link } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Link, useRouter } from "expo-router";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { registerSchema } from "@attendance/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
-import { requestPasswordReset } from "../../lib/account";
+import { supabase } from "../../lib/supabase/client";
+import { getAdminAppUrl } from "../../lib/config";
+import { useAuth } from "../../providers/auth-provider";
 
-export default function ForgotPasswordScreen() {
+const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
+
+interface UpgradeResponse {
+  error?: string;
+  access_token?: string;
+  refresh_token?: string;
+}
+
+export default function RegisterScreen() {
+  const router = useRouter();
+  const { refreshSessionContext, session } = useAuth();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit() {
+  async function handleRegister() {
+    const parsed = registerSchema.safeParse({ email, password, confirmPassword });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Enter a valid email and password.");
+      return;
+    }
+
+    if (!session) {
+      setError("Your session expired. Please start again.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
-    const result = await requestPasswordReset(email.trim()).catch(() => ({
-      success: false as const,
-      error: "Unable to send password reset instructions.",
-    }));
-
-    if (!result.success) {
-      setError(result.error);
+    let response: Response;
+    try {
+      response = await fetch(`${getAdminAppUrl()}/api/auth/mobile-upgrade`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email: parsed.data.email, password: parsed.data.password }),
+      });
+    } catch {
+      setError(CONNECTION_ERROR);
       setLoading(false);
       return;
     }
 
-    setSuccess(result.message);
-    setLoading(false);
+    const result = (await response.json().catch(() => null)) as UpgradeResponse | null;
+
+    if (!response.ok || !result?.access_token || !result?.refresh_token) {
+      setError(result?.error ?? "Unable to register. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    });
+
+    if (sessionError) {
+      setError(sessionError.message);
+      setLoading(false);
+      return;
+    }
+
+    await refreshSessionContext();
+    router.replace("/");
   }
 
   return (
@@ -42,11 +100,9 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
-            <Text style={styles.eyebrow}>Password recovery</Text>
-            <Text style={styles.title}>Reset your password</Text>
-            <Text style={styles.subtitle}>
-              Enter your account email and we&apos;ll send a secure recovery link to the web reset flow.
-            </Text>
+            <Text style={styles.eyebrow}>Create your account</Text>
+            <Text style={styles.title}>Register</Text>
+            <Text style={styles.subtitle}>Keep your activity history by upgrading to an email account.</Text>
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Email address</Text>
@@ -63,6 +119,30 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="At least 10 characters"
+                placeholderTextColor={mobileTheme.mutedSoft}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Confirm password</Text>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                placeholder="Re-enter your password"
+                placeholderTextColor={mobileTheme.mutedSoft}
+                style={styles.input}
+              />
+            </View>
+
             {error ? (
               <View style={styles.errorCard}>
                 <Text style={styles.errorTitle}>Unable to continue</Text>
@@ -70,19 +150,12 @@ export default function ForgotPasswordScreen() {
               </View>
             ) : null}
 
-            {success ? (
-              <View style={styles.successCard}>
-                <Text style={styles.successTitle}>Check your email</Text>
-                <Text style={styles.successText}>{success}</Text>
-              </View>
-            ) : null}
-
             <View style={styles.actions}>
-              <Link href="./sign-in" style={styles.backLink}>
-                Back to sign in
+              <Link href="/onboarding" style={styles.backLink}>
+                Back
               </Link>
               <Pressable
-                onPress={() => handleSubmit().catch(() => undefined)}
+                onPress={() => handleRegister().catch(() => undefined)}
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.submitButton,
@@ -93,10 +166,10 @@ export default function ForgotPasswordScreen() {
                 {loading ? (
                   <View style={styles.submitInner}>
                     <ActivityIndicator color={mobileTheme.white} />
-                    <Text style={styles.submitText}>Sending…</Text>
+                    <Text style={styles.submitText}>Registering…</Text>
                   </View>
                 ) : (
-                  <Text style={styles.submitText}>Send reset link</Text>
+                  <Text style={styles.submitText}>Create account</Text>
                 )}
               </Pressable>
             </View>
@@ -185,24 +258,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: mobileTheme.danger,
-  },
-  successCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: mobileTheme.accentBorder,
-    backgroundColor: mobileTheme.accentSoft,
-    padding: 14,
-    gap: 4,
-  },
-  successTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: mobileTheme.accent,
-  },
-  successText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: mobileTheme.text,
   },
   actions: {
     gap: 12,

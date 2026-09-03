@@ -35,7 +35,7 @@ function RootNavigation() {
 
     const inAuthGroup = segments[0] === "(auth)";
     if (!session && !inAuthGroup) {
-      router.replace("/login");
+      router.replace("/onboarding");
     }
 
     if (session && inAuthGroup) {
