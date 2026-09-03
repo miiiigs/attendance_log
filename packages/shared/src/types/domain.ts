@@ -1,5 +1,6 @@
 import type {
   ACTIVITY_STATUSES,
+  ACTIVITY_VISIBILITIES,
   ATTENDANCE_SCAN_TYPES,
   ORGANIZATION_APPLICATION_STATUSES,
   ORGANIZATION_MEMBERSHIP_ROLES,
@@ -15,6 +16,7 @@ export type ProfileStatus = (typeof PROFILE_STATUSES)[number];
 export type AttendanceScanType = (typeof ATTENDANCE_SCAN_TYPES)[number];
 export type QrSessionStatus = (typeof QR_SESSION_STATUSES)[number];
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+export type ActivityVisibility = (typeof ACTIVITY_VISIBILITIES)[number];
 export type PlatformRole = (typeof PLATFORM_ROLES)[number];
 export type OrganizationMembershipRole = (typeof ORGANIZATION_MEMBERSHIP_ROLES)[number];
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
@@ -106,9 +108,10 @@ export interface AttendanceMutationResult {
 
 export interface Activity {
   id: string;
-  organizationId: string;
+  organizationId: string | null;
   name: string;
   status: ActivityStatus;
+  visibility: ActivityVisibility;
   startedAt: string;
   endedAt: string | null;
   createdBy: string | null;
@@ -118,9 +121,10 @@ export interface Activity {
 
 export interface ActivityLog {
   id: string;
-  organizationId: string;
+  organizationId: string | null;
   activityId: string;
-  membershipId: string;
+  membershipId: string | null;
+  userId: string;
   timeIn: string;
   timeOut: string | null;
   createdAt: string;
@@ -136,4 +140,15 @@ export interface ActivityScanMutationResult {
   timeIn: string | null;
   timeOut: string | null;
   message: string;
+}
+
+export interface OrganizationJoinAuthorization {
+  id: string;
+  organizationId: string;
+  normalizedEmail: string;
+  status: string;
+  createdBy: string | null;
+  claimedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

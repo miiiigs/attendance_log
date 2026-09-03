@@ -58,6 +58,15 @@ export function getFullName(firstName: string, lastName: string) {
   return `${firstName} ${lastName}`.trim();
 }
 
+export function getDisplayName(firstName: string | null | undefined, lastName: string | null | undefined, displayName: string | null | undefined) {
+  const explicit = displayName?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  return getFullName(firstName ?? "", lastName ?? "");
+}
+
 export function getAttendanceGreeting(date = new Date()) {
   const hour = Number(
     new Intl.DateTimeFormat("en-PH", {

@@ -34,6 +34,37 @@ export const emailAddressSchema = z
 
 export const passwordSchema = z.string().min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
 
+export const displayNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a display name.")
+  .max(80, "Display name is too long.");
+
+export const emailSignInSchema = z.object({
+  email: emailAddressSchema,
+  password: z.string().min(1, "Enter your password."),
+});
+
+export const registerSchema = z
+  .object({
+    email: emailAddressSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirm your password."),
+  })
+  .superRefine((value, context) => {
+    if (value.password !== value.confirmPassword) {
+      context.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Your passwords do not match.",
+      });
+    }
+  });
+
+export const joinCommunitySchema = z.object({
+  communityCode: z.string().trim().min(1, "Enter a Community code.").max(20, "Community code is too long."),
+});
+
 export const forgotPasswordSchema = z.object({
   email: emailAddressSchema,
 });
@@ -81,3 +112,6 @@ export type OrganizationLoginInput = z.infer<typeof organizationLoginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type EmailSignInInput = z.infer<typeof emailSignInSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type JoinCommunityInput = z.infer<typeof joinCommunitySchema>;
