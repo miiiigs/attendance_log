@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { createRealtimeInvalidationChannel, getAttendanceGreeting, getDisplayName } from "@attendance/shared";
@@ -14,34 +14,63 @@ export default function HomeScreen() {
   const params = useLocalSearchParams();
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const requestSeq = useRef(0);
+  const lastRefreshRef = useRef<string | undefined>(undefined);
 
-  const loadHome = useEffectEvent(async (showLoading: boolean) => {
-    if (!profile) {
-      setRecentActivities([]);
-      return;
-    }
-
-    if (showLoading) {
-      setLoading(true);
-    }
-
-    try {
-      const { joined } = await loadMyActivities(profile.id);
-      setRecentActivities(joined.slice(0, 5));
-      setError(null);
-    } catch {
-      setError("Unable to load your activities.");
-    } finally {
-      if (showLoading) {
-        setLoading(false);
+  // Stable loader. Only `profile?.id` affects identity, so effects never loop.
+  // `initial` distinguishes the one-time blocking load from silent refreshes:
+  // background refreshes (realtime / AppState / nav refresh) never toggle the
+  // spinner and never clear already-rendered cards.
+  const loadRecent = useCallback(
+    async (initial: boolean) => {
+      const userId = profile?.id;
+      if (!userId) {
+        setRecentActivities([]);
+        setError(null);
+        return;
       }
-    }
-  });
+
+      const seq = ++requestSeq.current;
+      if (initial) {
+        setLoading(true);
+        setError(null);
+      }
+
+      try {
+        const { joined } = await loadMyActivities(userId);
+        if (seq !== requestSeq.current) {
+          return;
+        }
+        setRecentActivities(joined.slice(0, 5));
+        setError(null);
+      } catch {
+        if (seq !== requestSeq.current) {
+          return;
+        }
+        if (initial) {
+          setError("Unable to load your activities.");
+        }
+      } finally {
+        if (seq === requestSeq.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [profile?.id],
+  );
 
   useEffect(() => {
-    loadHome(true).catch(() => undefined);
-  }, [loadHome, profile?.id, params.refresh]);
+    loadRecent(true).catch(() => undefined);
+  }, [loadRecent]);
+
+  useEffect(() => {
+    const refresh = typeof params.refresh === "string" ? params.refresh : undefined;
+    if (refresh && refresh !== lastRefreshRef.current) {
+      lastRefreshRef.current = refresh;
+      loadRecent(false).catch(() => undefined);
+    }
+  }, [params.refresh, loadRecent]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -56,26 +85,26 @@ export default function HomeScreen() {
         { event: "*", schema: "public", table: "activities" },
       ],
       onInvalidate: () => {
-        loadHome(false).catch(() => undefined);
+        loadRecent(false).catch(() => undefined);
       },
     });
 
     return () => {
       void subscription.remove();
     };
-  }, [loadHome, profile?.id]);
+  }, [loadRecent, profile?.id]);
 
   useEffect(() => {
     const listener = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
-        loadHome(false).catch(() => undefined);
+        loadRecent(false).catch(() => undefined);
       }
     });
 
     return () => {
       listener.remove();
     };
-  }, [loadHome]);
+  }, [loadRecent]);
 
   if (!profile) {
     return (

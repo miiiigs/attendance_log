@@ -271,7 +271,9 @@ export function MobileStatusChip({
   return (
     <View style={[styles.statusChip, colors.container]}>
       <View style={[styles.statusDot, colors.dot]} />
-      <Text style={[styles.statusChipText, colors.text]}>{label}</Text>
+      <Text numberOfLines={1} style={[styles.statusChipText, colors.text]}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -524,6 +526,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
+    flexShrink: 1,
+    maxWidth: "100%",
   },
   statusDot: {
     width: 6,
@@ -533,6 +537,7 @@ const styles = StyleSheet.create({
   statusChipText: {
     fontSize: 11,
     fontWeight: "700",
+    flexShrink: 1,
   },
   primaryButton: {
     minHeight: 58,
