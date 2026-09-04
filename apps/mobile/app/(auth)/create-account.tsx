@@ -29,7 +29,13 @@ export default function CreateAccountScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  const authBusy = loading || googleLoading;
+
   async function handleCreateAccount() {
+    if (authBusy) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setVerificationEmail(null);
@@ -60,6 +66,10 @@ export default function CreateAccountScreen() {
   }
 
   async function handleContinueWithGoogle() {
+    if (authBusy) {
+      return;
+    }
+
     setGoogleLoading(true);
     setError(null);
 
@@ -168,11 +178,11 @@ export default function CreateAccountScreen() {
 
               <Pressable
                 onPress={() => handleCreateAccount().catch(() => undefined)}
-                disabled={loading}
+                disabled={authBusy}
                 style={({ pressed }) => [
                   styles.button,
-                  pressed && !loading ? styles.buttonPressed : null,
-                  loading ? styles.buttonDisabled : null,
+                  pressed && !authBusy ? styles.buttonPressed : null,
+                  authBusy ? styles.buttonDisabled : null,
                 ]}
               >
                 {loading ? (
@@ -193,11 +203,11 @@ export default function CreateAccountScreen() {
 
               <Pressable
                 onPress={() => handleContinueWithGoogle().catch(() => undefined)}
-                disabled={googleLoading}
+                disabled={authBusy}
                 style={({ pressed }) => [
                   styles.secondaryButton,
-                  pressed && !googleLoading ? styles.secondaryButtonPressed : null,
-                  googleLoading ? styles.buttonDisabled : null,
+                  pressed && !authBusy ? styles.secondaryButtonPressed : null,
+                  authBusy ? styles.buttonDisabled : null,
                 ]}
               >
                 {googleLoading ? (
