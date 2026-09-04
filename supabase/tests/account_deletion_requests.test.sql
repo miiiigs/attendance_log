@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(13);
+select plan(14);
 
 select has_table('public', 'account_deletion_requests', 'account deletion request table exists');
 select has_column('public', 'account_deletion_requests', 'normalized_email', 'stores normalized email only');
@@ -34,6 +34,11 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'public.account_deletion_requests', 'insert'),
   'authenticated users cannot insert deletion requests directly'
+);
+
+select ok(
+  has_table_privilege('service_role', 'public.account_deletion_requests', 'insert'),
+  'service_role can insert deletion requests for the server-side request endpoint'
 );
 
 select lives_ok(

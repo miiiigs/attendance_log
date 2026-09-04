@@ -68,7 +68,8 @@ const sections = [
   {
     title: "Contact",
     body: [
-      "For account deletion or privacy requests, use the QRLog account deletion request page. For Community-specific access issues, users may also contact their Community administrator.",
+      "For privacy questions, personal-data inquiries, privacy rights requests, or questions about account or data deletion, contact jmh.leysa@gmail.com.",
+      "To request deletion of a QRLog account, use the Account Deletion page. For Community-specific access issues, users may also contact their Community administrator.",
     ],
   },
 ];

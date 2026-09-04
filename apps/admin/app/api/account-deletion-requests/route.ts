@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Enter a valid email address." }, { status: 400 });
   }
 
+  // TODO: add abuse and rate-limit hardening for this public endpoint.
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("account_deletion_requests").insert({
     normalized_email: parsed.data.email,

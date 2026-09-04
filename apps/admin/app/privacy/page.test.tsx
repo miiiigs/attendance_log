@@ -14,6 +14,7 @@ describe("/privacy", () => {
     expect(html).toContain("Supabase");
     expect(html).toContain("Vercel");
     expect(html).toContain("Google Sign-In");
+    expect(html).toContain("jmh.leysa@gmail.com");
     expect(html).not.toContain("service-role-secret-test-value");
   });
 });

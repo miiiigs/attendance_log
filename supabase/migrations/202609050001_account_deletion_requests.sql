@@ -62,3 +62,5 @@ alter table public.account_deletion_requests enable row level security;
 revoke all on table public.account_deletion_requests from public;
 revoke all on table public.account_deletion_requests from anon;
 revoke all on table public.account_deletion_requests from authenticated;
+
+grant insert on table public.account_deletion_requests to service_role;
