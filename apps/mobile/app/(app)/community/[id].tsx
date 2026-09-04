@@ -7,21 +7,20 @@ import { OrganizationLogo } from "../../../components/branding";
 import { useAuth } from "../../../providers/auth-provider";
 import { supabase } from "../../../lib/supabase/client";
 import { getOrgTimezone } from "../../../lib/config";
+import {
+  canLoadCommunityActivities,
+  COMMUNITY_ACTIVITIES_ERROR,
+  loadCommunityActivities,
+  normalizeCommunityRouteId,
+  type CommunityActivity,
+  type CommunityActivitiesClient,
+} from "../../../lib/community-activities";
 import { updateCommunityDisplayName } from "../../../lib/display-name";
 
-interface CommunityActivity {
-  id: string;
-  name: string;
-  status: string;
-  visibility: string;
-  started_at: string;
-  ended_at: string | null;
-}
-
 export default function CommunityPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
-  const { profile, memberships, refreshSessionContext } = useAuth();
+  const { profile, memberships, loading: authLoading, refreshSessionContext } = useAuth();
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +30,8 @@ export default function CommunityPage() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState<string | null>(null);
 
-  const membership = memberships.find((item) => item.organizationId === id);
+  const communityId = normalizeCommunityRouteId(id);
+  const membership = memberships.find((item) => item.organizationId === communityId);
   const isAdmin = membership?.role === "organization_admin";
   const timezone = getOrgTimezone(membership?.organization.timezone);
   const memberDisplayName =
@@ -41,35 +41,35 @@ export default function CommunityPage() {
     "Member";
 
   useEffect(() => {
-    if (!id) {
+    if (!communityId || !canLoadCommunityActivities(communityId, membership?.organizationId)) {
+      setActivities([]);
+      setError(null);
+      setLoading(false);
       return;
     }
 
     let active = true;
+    const activeCommunityId = communityId;
 
     async function load() {
       setLoading(true);
-      const { data, error: queryError } = await supabase
-        .from("activities")
-        .select("id, name, status, visibility, started_at, ended_at")
-        .eq("organization_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20);
+      setError(null);
 
+      const data = await loadCommunityActivities(supabase as unknown as CommunityActivitiesClient, activeCommunityId);
       if (!active) {
         return;
       }
 
-      if (queryError) {
-        setError(queryError.message);
-      } else {
-        setActivities(data ?? []);
-      }
+      setActivities(data);
       setLoading(false);
     }
 
-    load().catch(() => {
+    load().catch((queryError: { message?: string }) => {
       if (active) {
+        if (__DEV__ && queryError?.message) {
+          console.warn(`[community] activity load failed for ${activeCommunityId}: ${queryError.message}`);
+        }
+        setError(COMMUNITY_ACTIVITIES_ERROR);
         setLoading(false);
       }
     });
@@ -77,7 +77,7 @@ export default function CommunityPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [communityId, membership?.organizationId]);
 
   function startEditName() {
     setNameInput(memberDisplayName);
@@ -94,7 +94,7 @@ export default function CommunityPage() {
   }
 
   async function handleSaveName() {
-    if (!id) {
+    if (!communityId) {
       return;
     }
 
@@ -102,7 +102,7 @@ export default function CommunityPage() {
     setNameError(null);
     setNameSuccess(null);
 
-    const result = await updateCommunityDisplayName(supabase, id, nameInput);
+    const result = await updateCommunityDisplayName(supabase, communityId, nameInput);
 
     if (!result.ok) {
       setNameError(result.error);
@@ -120,7 +120,11 @@ export default function CommunityPage() {
   if (!membership) {
     return (
       <MobileShell route="/communities">
-        <MobileHeading eyebrow="QRLog" title="Community" subtitle="Community not found." />
+        <MobileHeading
+          eyebrow="QRLog"
+          title="Community"
+          subtitle={authLoading && communityId ? "Loading Community..." : "Community not found."}
+        />
       </MobileShell>
     );
   }
@@ -205,7 +209,7 @@ export default function CommunityPage() {
 
       {isAdmin ? (
         <Pressable
-          onPress={() => router.push({ pathname: "/create-activity", params: { organizationId: id } })}
+          onPress={() => router.push({ pathname: "/create-activity", params: { organizationId: communityId } })}
           style={({ pressed }) => [styles.createButton, pressed ? styles.pressed : null]}
         >
           <Text style={styles.createButtonText}>Create Activity</Text>
