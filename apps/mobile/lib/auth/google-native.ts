@@ -33,11 +33,23 @@ export function isNativeGoogleConfigured(): boolean {
  *
  *   GoogleSignin.signIn() -> Google ID token -> supabase.auth.signInWithIdToken
  *
- * This uses the free, open-source @react-native-google-signin/google-signin
- * library (the pattern documented in Supabase's Expo React Native guide). It
- * never places a client secret or service role in the app and does not disable
- * Supabase nonce validation. If the Web Client ID is not configured, the caller
- * should use the browser PKCE OAuth fallback instead.
+ * Uses the free, open-source @react-native-google-signin/google-signin library
+ * (the pattern in Supabase's Expo React Native guide). No client secret or
+ * service role is shipped.
+ *
+ * Nonce / "Skip Nonce Check" contract (authoritative): the free package's
+ * `signIn()` returns an ID token with no `nonce` claim, and this call passes no
+ * `nonce` to `signInWithIdToken`. Supabase Auth (GoTrue `IdTokenGrant`) accepts
+ * an ID token that has no nonce when the client also passes no nonce; its
+ * nonce check only rejects when token and request disagree, or when a nonce
+ * mismatches. Therefore Supabase "Skip Nonce Check" MUST remain DISABLED, and
+ * no nonce weakening is required.
+ *
+ * Expo config: Android-only and no Firebase needs NO config plugin. The
+ * package autolinks (verified via `expo config`); its Expo config plugin only
+ * adds an iOS URL scheme (requires an iOS client ID) or Firebase
+ * `google-services.json`, neither of which applies here. iOS/web fall back to
+ * the browser PKCE flow in `google.ts`.
  */
 export async function continueWithGoogleNative(supabase: SupabaseClient): Promise<GoogleResult> {
   const webClientId = getWebClientId();
