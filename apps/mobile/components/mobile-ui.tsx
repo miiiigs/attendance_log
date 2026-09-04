@@ -143,7 +143,13 @@ function BottomNav({ currentRoute }: { currentRoute: MainRoute }) {
           return (
             <Pressable
               key={item.route}
-              onPress={() => router.replace(item.route)}
+              onPress={() => {
+                if (item.route === "/scan") {
+                  router.push("/scan");
+                } else {
+                  router.replace(item.route);
+                }
+              }}
               style={({ pressed }) => [styles.navItem, pressed && !active ? styles.navItemPressed : null]}
             >
               <View style={[styles.navIconWrap, active ? styles.navIconWrapActive : null]}>
