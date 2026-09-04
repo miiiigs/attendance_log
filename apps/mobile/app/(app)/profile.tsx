@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { getDisplayName } from "@attendance/shared";
 import {
   MobileCard,
@@ -14,6 +14,7 @@ import {
   mobileTheme,
 } from "../../components/mobile-ui";
 import { changeMobilePassword } from "../../lib/account";
+import { QRLOG_DELETE_ACCOUNT_URL, QRLOG_PRIVACY_POLICY_URL } from "../../lib/compliance-links";
 import { updateGlobalDisplayName } from "../../lib/display-name";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
@@ -109,6 +110,10 @@ export default function ProfileScreen() {
     setNameInput("");
     setNameSuccess("Your display name was updated.");
     setNameLoading(false);
+  }
+
+  function openExternalUrl(url: string) {
+    Linking.openURL(url).catch(() => undefined);
   }
 
   return (
@@ -287,6 +292,26 @@ export default function ProfileScreen() {
           </View>
         </MobileCard>
       ) : null}
+
+      <MobileCard>
+        <MobileLabel>Account / Privacy</MobileLabel>
+        <View style={styles.privacyStack}>
+          <Pressable
+            onPress={() => openExternalUrl(QRLOG_PRIVACY_POLICY_URL)}
+            style={({ pressed }) => [styles.privacyLinkButton, pressed ? styles.pressed : null]}
+          >
+            <Text style={styles.privacyLinkText}>Privacy Policy</Text>
+          </Pressable>
+          {!isGuest ? (
+            <Pressable
+              onPress={() => openExternalUrl(QRLOG_DELETE_ACCOUNT_URL)}
+              style={({ pressed }) => [styles.deleteLinkButton, pressed ? styles.pressed : null]}
+            >
+              <Text style={styles.deleteLinkText}>Delete Account</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </MobileCard>
 
       <MobileSecondaryButton label="Sign Out" onPress={() => signOut().catch(() => undefined)} danger />
     </MobileShell>
@@ -505,6 +530,38 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: mobileTheme.white,
     fontSize: 15,
+    fontWeight: "700",
+  },
+  privacyStack: {
+    marginTop: 14,
+    gap: 10,
+  },
+  privacyLinkButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panelSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privacyLinkText: {
+    color: mobileTheme.accent,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  deleteLinkButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mobileTheme.dangerBorder,
+    backgroundColor: mobileTheme.dangerSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteLinkText: {
+    color: mobileTheme.danger,
+    fontSize: 14,
     fontWeight: "700",
   },
 });
