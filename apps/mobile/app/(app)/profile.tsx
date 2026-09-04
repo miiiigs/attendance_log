@@ -14,18 +14,24 @@ import {
   mobileTheme,
 } from "../../components/mobile-ui";
 import { changeMobilePassword } from "../../lib/account";
+import { updateGlobalDisplayName } from "../../lib/display-name";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, memberships, session, isGuest, signOut } = useAuth();
+  const { profile, memberships, session, isGuest, signOut, refreshSessionContext } = useAuth();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSuccess, setNameSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     // Reset password fields when switching between guest/registered states.
@@ -34,6 +40,10 @@ export default function ProfileScreen() {
     setConfirmNewPassword("");
     setError(null);
     setSuccess(null);
+    setEditingName(false);
+    setNameInput("");
+    setNameError(null);
+    setNameSuccess(null);
   }, [profile?.id]);
 
   if (!profile) {
@@ -67,6 +77,40 @@ export default function ProfileScreen() {
     setLoading(false);
   }
 
+  function startEditName() {
+    setNameInput(displayName);
+    setNameError(null);
+    setNameSuccess(null);
+    setEditingName(true);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+    setNameInput("");
+    setNameError(null);
+    setNameSuccess(null);
+  }
+
+  async function handleSaveName() {
+    setNameLoading(true);
+    setNameError(null);
+    setNameSuccess(null);
+
+    const result = await updateGlobalDisplayName(supabase, nameInput);
+
+    if (!result.ok) {
+      setNameError(result.error);
+      setNameLoading(false);
+      return;
+    }
+
+    await refreshSessionContext();
+    setEditingName(false);
+    setNameInput("");
+    setNameSuccess("Your display name was updated.");
+    setNameLoading(false);
+  }
+
   return (
     <MobileShell route="/profile">
       <MobileHeading eyebrow="QRLog" title="Profile" subtitle={isGuest ? "Guest account" : "Registered account"} />
@@ -81,6 +125,67 @@ export default function ProfileScreen() {
           <MobileStatusChip label={isGuest ? "Guest" : "Registered"} tone={isGuest ? "warning" : "success"} />
         </View>
       </View>
+
+      <MobileCard>
+        <MobileLabel>Display name</MobileLabel>
+        {editingName ? (
+          <View style={styles.nameEditStack}>
+            <TextInput
+              value={nameInput}
+              onChangeText={setNameInput}
+              autoCapitalize="words"
+              autoCorrect={false}
+              placeholder="Your display name"
+              placeholderTextColor={mobileTheme.mutedSoft}
+              style={styles.input}
+            />
+            {nameError ? (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorText}>{nameError}</Text>
+              </View>
+            ) : null}
+            {nameSuccess ? (
+              <View style={styles.successCard}>
+                <Text style={styles.successText}>{nameSuccess}</Text>
+              </View>
+            ) : null}
+            <View style={styles.nameActionsRow}>
+              <Pressable
+                onPress={cancelEditName}
+                disabled={nameLoading}
+                style={({ pressed }) => [styles.nameActionButton, pressed && !nameLoading ? styles.pressed : null]}
+              >
+                <Text style={styles.nameActionText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleSaveName().catch(() => undefined)}
+                disabled={nameLoading}
+                style={({ pressed }) => [
+                  styles.nameSaveButton,
+                  pressed && !nameLoading ? styles.pressed : null,
+                  nameLoading ? styles.nameSaveDisabled : null,
+                ]}
+              >
+                {nameLoading ? (
+                  <View style={styles.buttonInner}>
+                    <ActivityIndicator color={mobileTheme.white} />
+                    <Text style={styles.nameSaveText}>Saving…</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.nameSaveText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.nameDisplayRow}>
+            <Text style={styles.nameDisplayValue}>{displayName}</Text>
+            <Pressable onPress={startEditName} style={({ pressed }) => [styles.editNameButton, pressed ? styles.pressed : null]}>
+              <Text style={styles.editNameButtonText}>Edit Name</Text>
+            </Pressable>
+          </View>
+        )}
+      </MobileCard>
 
       {isGuest ? (
         <MobileSoftCard>
@@ -260,6 +365,71 @@ const styles = StyleSheet.create({
   },
   longValue: {
     maxWidth: 200,
+  },
+  nameEditStack: {
+    marginTop: 14,
+    gap: 12,
+  },
+  nameDisplayRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  nameDisplayValue: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: mobileTheme.text,
+  },
+  editNameButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  editNameButtonText: {
+    color: mobileTheme.accent,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  nameActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  nameActionButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panel,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nameActionText: {
+    color: mobileTheme.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  nameSaveButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: mobileTheme.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nameSaveDisabled: {
+    opacity: 0.65,
+  },
+  nameSaveText: {
+    color: mobileTheme.white,
+    fontSize: 14,
+    fontWeight: "700",
   },
   passwordStack: {
     marginTop: 14,

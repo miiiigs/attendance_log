@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { formatDateInTimeZone, formatTimeInTimeZone } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileSecondaryButton, mobileTheme } from "../../components/mobile-ui";
@@ -69,12 +69,23 @@ export default function ScanScreen() {
 
   const timezone = getOrgTimezone(undefined);
 
-  function handleClose() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
+  // Scan is a temporary modal action. Android's hardware Back must return to
+  // Home (never exit the app, and never rely on navigation history existing).
+  // The listener is registered for the lifetime of this screen and removed on
+  // unmount, so it is active across every Scan render branch (permission
+  // checking, permission denied, active scanner, error, and success).
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/");
+      return true;
+    });
 
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
+
+  function handleClose() {
     router.replace("/");
   }
 

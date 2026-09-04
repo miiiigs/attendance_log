@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { AppLogo } from "../../components/branding";
 import { supabase } from "../../lib/supabase/client";
-import { continueWithGoogle } from "../../lib/auth/google";
+import { signInWithGoogle } from "../../lib/auth/google-native";
 import { friendlySignInError, logAuthFailure } from "../../lib/auth/friendly";
 
 const GENERIC_ERROR = "Invalid email or password.";
@@ -67,7 +67,7 @@ export default function SignInScreen() {
     setGoogleLoading(true);
     setError(null);
 
-    const result = await continueWithGoogle(supabase);
+    const result = await signInWithGoogle(supabase);
 
     if (!result.ok && result.error) {
       setError(result.error);

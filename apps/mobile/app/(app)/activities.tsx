@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { createRealtimeInvalidationChannel, formatDateInTimeZone, formatTimeInTimeZone } from "@attendance/shared";
-import { MobileCard, MobileHeading, MobileShell, MobileSoftCard, MobileStatusChip, mobileTheme } from "../../components/mobile-ui";
+import { MobileCard, MobileHeading, MobileShell, MobileSoftCard, mobileTheme } from "../../components/mobile-ui";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { getOrgTimezone } from "../../lib/config";
-import { loadMyActivities, activitySourceLabel, type ActivityItem } from "../../lib/activities";
+import { loadMyActivities, type ActivityItem } from "../../lib/activities";
 
 type Tab = "joined" | "created";
 
@@ -15,6 +15,8 @@ export default function ActivitiesScreen() {
   const [joined, setJoined] = useState<ActivityItem[]>([]);
   const [created, setCreated] = useState<ActivityItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 360;
 
   const timezone = getOrgTimezone(undefined);
 
@@ -101,21 +103,25 @@ export default function ActivitiesScreen() {
       {items.length ? (
         items.map((item) => (
           <MobileCard key={item.activityId}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderBlock}>
-                <Text style={styles.activityName}>{item.name}</Text>
-                <Text style={styles.dateMeta}>{formatDateInTimeZone(item.startedAt || item.timeIn || new Date().toISOString(), timezone)}</Text>
-              </View>
-              <MobileStatusChip label={activitySourceLabel(item)} tone="neutral" />
+            <Text style={styles.activityName}>{item.name}</Text>
+            <Text style={styles.dateMeta}>{formatDateInTimeZone(item.startedAt || item.timeIn || new Date().toISOString(), timezone)}</Text>
+
+            <View style={styles.sourceRow}>
+              <Text style={styles.sourceLabel}>{item.organizationName ? "Community" : "Public"}</Text>
+              {item.organizationName ? (
+                <Text style={styles.sourceName} numberOfLines={2}>
+                  {item.organizationName}
+                </Text>
+              ) : null}
             </View>
 
             {tab === "joined" && item.timeIn ? (
-              <View style={styles.timeRow}>
+              <View style={[styles.timeSection, isNarrow ? styles.timeSectionStacked : null]}>
                 <View style={styles.timeBlock}>
                   <Text style={styles.timeLabel}>Time In</Text>
                   <Text style={styles.timeValue}>{formatTimeInTimeZone(item.timeIn, timezone)}</Text>
                 </View>
-                <View style={styles.timeDivider} />
+                {isNarrow ? null : <View style={styles.timeDivider} />}
                 <View style={styles.timeBlock}>
                   <Text style={styles.timeLabel}>Time Out</Text>
                   <Text style={styles.timeValue}>{formatTimeInTimeZone(item.timeOut, timezone)}</Text>
@@ -170,17 +176,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  cardHeaderBlock: {
-    flex: 1,
-  },
   activityName: {
     fontSize: 17,
+    lineHeight: 22,
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.3,
@@ -190,10 +188,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: mobileTheme.mutedSoft,
   },
-  timeRow: {
-    marginTop: 18,
+  sourceRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  sourceLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: mobileTheme.mutedSoft,
+    paddingTop: 2,
+  },
+  sourceName: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+    color: mobileTheme.text,
+  },
+  timeSection: {
+    marginTop: 16,
     flexDirection: "row",
     gap: 14,
+    borderRadius: 16,
+    backgroundColor: mobileTheme.panelSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  timeSectionStacked: {
+    flexDirection: "column",
+    gap: 12,
   },
   timeBlock: {
     flex: 1,
@@ -206,7 +233,7 @@ const styles = StyleSheet.create({
     color: mobileTheme.mutedSoft,
   },
   timeValue: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 18,
     fontWeight: "700",
     color: mobileTheme.text,

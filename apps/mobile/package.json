@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@attendance/shared": "workspace:*",
+    "@react-native-google-signin/google-signin": "^16.1.5",
     "@supabase/supabase-js": "^2.56.0",
     "expo": "~57.0.13",
     "expo-auth-session": "~57.0.11",
