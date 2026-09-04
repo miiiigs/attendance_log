@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useEffectEvent, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import type { Session, User } from "@supabase/supabase-js";
 import { AppState } from "react-native";
 import { createRealtimeInvalidationChannel, type RealtimePostgresChange } from "@attendance/shared";
 import { supabase } from "../lib/supabase/client";
+import { isGuestUser } from "../lib/auth-state";
 
 export interface OrganizationContext {
   id: string;
@@ -46,11 +47,81 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+interface ProfileRow {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  display_name?: string | null;
+  status?: string;
+}
+
+function mapProfileRow(row: ProfileRow): ProfileContext {
+  return {
+    id: row.id,
+    firstName: row.first_name ?? null,
+    lastName: row.last_name ?? null,
+    displayName: row.display_name ?? null,
+    email: row.email ?? null,
+    status: row.status ?? "active",
+  };
+}
+
+/**
+ * Non-sensitive display data that the user supplied at signup (or the provider
+ * supplied at Google auth). Carried in Auth user metadata only so it survives
+ * email confirmation; NEVER used for authorization.
+ */
+function pickRegisteredDisplayName(user: User): string | null {
+  const metadata = user.user_metadata ?? {};
+  const candidate =
+    typeof metadata.display_name === "string" && metadata.display_name.trim()
+      ? metadata.display_name.trim()
+      : typeof metadata.full_name === "string" && metadata.full_name.trim()
+        ? metadata.full_name.trim()
+        : typeof metadata.name === "string" && metadata.name.trim()
+          ? metadata.name.trim()
+          : null;
+  return candidate;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileContext | null>(null);
   const [memberships, setMemberships] = useState<MembershipContext[]>([]);
   const [loading, setLoading] = useState(true);
+  const bootstrapAttemptedUserIds = useRef<Set<string>>(new Set());
+
+  /**
+   * Server-authoritative, idempotent profile bootstrap for a permanent
+   * (non-anonymous) user whose `profiles` row does not exist yet (first email
+   * sign-in, new Google user). It never trusts a submitted email and only ever
+   * creates a profile for the CURRENT caller.
+   */
+  async function ensureRegisteredProfile(user: User): Promise<ProfileRow | null> {
+    if (isGuestUser(user)) {
+      return null;
+    }
+
+    if (bootstrapAttemptedUserIds.current.has(user.id)) {
+      return null;
+    }
+    bootstrapAttemptedUserIds.current.add(user.id);
+
+    const displayName = pickRegisteredDisplayName(user);
+    const { data, error } = await supabase.rpc("ensure_registered_profile", {
+      display_name: displayName ?? null,
+    });
+
+    if (error) {
+      if (__DEV__) {
+        console.warn(`[auth] registered profile bootstrap skipped for ${user.id}: ${error.message}`);
+      }
+      return null;
+    }
+
+    return (data ?? null) as ProfileRow | null;
+  }
 
   async function revalidateContext(activeSession: Session) {
     const userId = activeSession.user.id;
@@ -68,18 +139,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("status", "active"),
     ]);
 
-    setProfile(
-      profileData
-        ? {
-            id: profileData.id,
-            firstName: profileData.first_name ?? null,
-            lastName: profileData.last_name ?? null,
-            displayName: profileData.display_name ?? null,
-            email: profileData.email ?? null,
-            status: profileData.status,
-          }
-        : null,
-    );
+    let resolvedProfile: ProfileContext | null = profileData ? mapProfileRow(profileData) : null;
+
+    if (!resolvedProfile) {
+      // A permanent user with no profile row yet (fresh email sign-in or a new
+      // Google user) gets an idempotent server bootstrap.
+      const bootstrapped = await ensureRegisteredProfile(activeSession.user);
+      if (bootstrapped) {
+        resolvedProfile = mapProfileRow(bootstrapped);
+      }
+    }
+
+    setProfile(resolvedProfile);
 
     const activeMemberships: MembershipContext[] = (membershipData ?? [])
       .map((membership) => {
@@ -115,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setProfile(null);
     setMemberships([]);
+    bootstrapAttemptedUserIds.current.clear();
   }
 
   const refreshSessionContext = useEffectEvent(async () => {
@@ -165,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         setMemberships([]);
+        bootstrapAttemptedUserIds.current.clear();
       }
     });
 
@@ -210,8 +283,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshSessionContext]);
 
-  const isGuest = Boolean(session) && !profile?.email;
-  const isRegistered = Boolean(profile?.email);
+  // Authoritative guest/registered state comes from the Auth identity
+  // (session.user.is_anonymous + confirmed email), never from profiles.email.
+  const isGuest = session !== null && isGuestUser(session.user);
+  const isRegistered = session !== null && !isGuest;
 
   const value = useMemo(
     () => ({

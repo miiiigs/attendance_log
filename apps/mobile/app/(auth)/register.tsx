@@ -12,14 +12,12 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { emailAddressSchema } from "@attendance/shared";
+import { MIN_PASSWORD_LENGTH } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
-
-const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
-const EMAIL_TAKEN_ERROR = "This email is already linked to a QRLog account. Sign in to that account instead.";
+import { checkGuestEmailVerification, finishGuestUpgrade, submitGuestUpgradeEmail } from "../../lib/auth/guest-upgrade";
 
 type Step = "email" | "verify" | "password";
 
@@ -34,24 +32,13 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleSubmitEmail() {
-    const parsed = emailAddressSchema.safeParse(email);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a valid email address.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
-    const { error: updateError } = await supabase.auth.updateUser({ email: parsed.data });
+    const result = await submitGuestUpgradeEmail(supabase, email);
 
-    if (updateError) {
-      const message = updateError.message.toLowerCase();
-      if (message.includes("already") || message.includes("exists") || message.includes("registered")) {
-        setError(EMAIL_TAKEN_ERROR);
-      } else {
-        setError(updateError.message || CONNECTION_ERROR);
-      }
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
@@ -64,30 +51,27 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const result = await checkGuestEmailVerification(supabase);
 
-    if (userError || !user) {
-      setError("Your session expired. Please sign in again.");
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
 
-    if (user.email_confirmed_at) {
-      setStep("password");
+    if (!result.verified) {
+      setError("Your email is not verified yet. Click the verification link we sent, then check again.");
       setLoading(false);
       return;
     }
 
-    setError("Your email is not verified yet. Click the verification link we sent, then check again.");
+    setStep("password");
     setLoading(false);
   }
 
   async function handleSetPassword() {
-    if (password.length < 10) {
-      setError("Password must be at least 10 characters.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
@@ -99,18 +83,10 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
 
-    const { error: passwordError } = await supabase.auth.updateUser({ password });
+    const result = await finishGuestUpgrade(supabase, password);
 
-    if (passwordError) {
-      setError(passwordError.message || "Unable to set your password.");
-      setLoading(false);
-      return;
-    }
-
-    const { error: syncError } = await supabase.rpc("sync_profile_email");
-
-    if (syncError) {
-      setError(syncError.message || "Unable to finish registration.");
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
@@ -166,7 +142,7 @@ export default function RegisterScreen() {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
-                    placeholder="At least 10 characters"
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                     placeholderTextColor={mobileTheme.mutedSoft}
                     style={styles.input}
                   />
@@ -195,7 +171,7 @@ export default function RegisterScreen() {
             <View style={styles.actions}>
               {step === "email" ? (
                 <>
-                  <Link href="/onboarding" style={styles.backLink}>
+                  <Link href="/guest" style={styles.backLink}>
                     Back
                   </Link>
                   <Pressable

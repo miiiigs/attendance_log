@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveAuthState, resolveRouteRedirect } from "./navigation";
+import { deriveAuthState, resolveRouteRedirect, UNAUTHENTICATED_DEFAULT_ROUTE } from "./navigation";
 
 describe("navigation auth state", () => {
   it("derives three states from session and guest flags", () => {
@@ -10,8 +10,12 @@ describe("navigation auth state", () => {
 });
 
 describe("route redirect decisions", () => {
-  it("redirects an unauthenticated user from an app route to onboarding", () => {
-    expect(resolveRouteRedirect("unauthenticated", false)).toBe("/onboarding");
+  it("redirects an unauthenticated user from an app route to Sign In (not guest onboarding)", () => {
+    expect(resolveRouteRedirect("unauthenticated", false)).toBe("/sign-in");
+  });
+
+  it("defaults the unauthenticated destination to Sign In", () => {
+    expect(UNAUTHENTICATED_DEFAULT_ROUTE).toBe("/sign-in");
   });
 
   it("keeps a guest on an app route (Home)", () => {
@@ -22,7 +26,7 @@ describe("route redirect decisions", () => {
     expect(resolveRouteRedirect("registered", false)).toBeNull();
   });
 
-  it("keeps an unauthenticated user on an auth route", () => {
+  it("keeps an unauthenticated user on an auth route (Sign In / Create account / Guest)", () => {
     expect(resolveRouteRedirect("unauthenticated", true)).toBeNull();
   });
 
@@ -32,5 +36,10 @@ describe("route redirect decisions", () => {
 
   it("redirects a registered user away from /register to Home", () => {
     expect(resolveRouteRedirect("registered", true)).toBe("/");
+  });
+
+  it("never redirects an unauthenticated user to the guest screen automatically", () => {
+    expect(UNAUTHENTICATED_DEFAULT_ROUTE).not.toBe("/guest");
+    expect(UNAUTHENTICATED_DEFAULT_ROUTE).not.toBe("/onboarding");
   });
 });
