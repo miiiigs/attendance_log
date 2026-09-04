@@ -26,6 +26,13 @@ type RealtimeClientLike<TChannel> = {
   removeChannel: (channel: TChannel) => Promise<unknown> | unknown;
 };
 
+let realtimeChannelInstanceId = 0;
+
+function createRealtimeChannelInstanceName(channelName: string) {
+  realtimeChannelInstanceId += 1;
+  return `${channelName}:instance-${realtimeChannelInstanceId}`;
+}
+
 export function createRealtimeInvalidationChannel<TChannel extends RealtimeChannelLike<TChannel>>({
   client,
   channelName,
@@ -39,9 +46,10 @@ export function createRealtimeInvalidationChannel<TChannel extends RealtimeChann
   onInvalidate: (payload: unknown) => void;
   onStatus?: (status: RealtimeSubscriptionStatus) => void;
 }) {
+  const instanceChannelName = createRealtimeChannelInstanceName(channelName);
   const channel = changes.reduce(
     (currentChannel, change) => currentChannel.on("postgres_changes", change, onInvalidate),
-    client.channel(channelName),
+    client.channel(instanceChannelName),
   );
 
   channel.subscribe(onStatus);
