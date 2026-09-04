@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "expo-router";
 import {
   ActivityIndicator,
@@ -30,56 +30,63 @@ export default function CreateAccountScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const authBusy = loading || googleLoading;
+  const authInFlightRef = useRef(false);
 
   async function handleCreateAccount() {
-    if (authBusy) {
+    if (authBusy || authInFlightRef.current) {
       return;
     }
 
+    authInFlightRef.current = true;
     setLoading(true);
     setError(null);
     setVerificationEmail(null);
 
-    const result = await createAccount(supabase, {
-      displayName,
-      email,
-      password,
-      confirmPassword,
-    });
+    try {
+      const result = await createAccount(supabase, {
+        displayName,
+        email,
+        password,
+        confirmPassword,
+      });
 
-    if (!result.ok) {
-      setError(result.error);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.requiresEmailConfirmation) {
+        setVerificationEmail(email.trim().toLowerCase());
+        return;
+      }
+
+      // Rarely, Confirm Email is off and Supabase returns a session directly;
+      // the auth listener signs the user in and navigation moves to Home.
+    } finally {
+      authInFlightRef.current = false;
       setLoading(false);
-      return;
     }
-
-    if (result.requiresEmailConfirmation) {
-      setVerificationEmail(email.trim().toLowerCase());
-      setLoading(false);
-      return;
-    }
-
-    // Rarely, Confirm Email is off and Supabase returns a session directly;
-    // the auth listener signs the user in and navigation moves to Home.
-    setLoading(false);
-    return;
   }
 
   async function handleContinueWithGoogle() {
-    if (authBusy) {
+    if (authBusy || authInFlightRef.current) {
       return;
     }
 
+    authInFlightRef.current = true;
     setGoogleLoading(true);
     setError(null);
 
-    const result = await signInWithGoogle(supabase);
+    try {
+      const result = await signInWithGoogle(supabase);
 
-    if (!result.ok && result.error) {
-      setError(result.error);
+      if (!result.ok && result.error) {
+        setError(result.error);
+      }
+    } finally {
+      authInFlightRef.current = false;
+      setGoogleLoading(false);
     }
-
-    setGoogleLoading(false);
   }
 
   return (
