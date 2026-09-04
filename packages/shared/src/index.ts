@@ -1,4 +1,5 @@
 export * from "./constants/app";
+export * from "./schemas/account-deletion";
 export * from "./schemas/application";
 export * from "./schemas/auth";
 export * from "./schemas/person";
