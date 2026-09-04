@@ -16,19 +16,12 @@ import { emailSignInSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { AppLogo } from "../../components/branding";
+import { GoogleGlyph } from "../../components/google-glyph";
 import { supabase } from "../../lib/supabase/client";
 import { signInWithGoogle } from "../../lib/auth/google-native";
 import { friendlySignInError, logAuthFailure } from "../../lib/auth/friendly";
 
 const GENERIC_ERROR = "Invalid email or password.";
-
-function GoogleGlyph() {
-  return (
-    <View style={styles.googleGlyph} accessibilityLabel="Google">
-      <Text style={styles.googleGlyphText}>G</Text>
-    </View>
-  );
-}
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
@@ -391,21 +384,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: mobileTheme.text,
   },
-  googleGlyph: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#4285F4",
-  },
-  googleGlyphText: {
-    color: mobileTheme.white,
-    fontSize: 13,
-    fontWeight: "800",
-    lineHeight: 16,
-  },
   guestButton: {
+    width: "100%",
     minHeight: 52,
     alignItems: "center",
     justifyContent: "center",
@@ -416,9 +396,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   guestButtonText: {
+    width: "100%",
     fontSize: 15,
     fontWeight: "700",
     color: mobileTheme.text,
+    textAlign: "center",
   },
   footer: {
     flexDirection: "row",

@@ -18,6 +18,7 @@
     "expo-sharing": "~57.0.17",
     "expo-splash-screen": "~57.0.6",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.21",
     "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",

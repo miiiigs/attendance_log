@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "expo-router";
 import {
   ActivityIndicator,
@@ -14,8 +14,10 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
+import { GoogleGlyph } from "../../components/google-glyph";
 import { supabase } from "../../lib/supabase/client";
 import { createAccount } from "../../lib/auth/signup";
+import { signInWithGoogle } from "../../lib/auth/google-native";
 
 export default function CreateAccountScreen() {
   const [displayName, setDisplayName] = useState("");
@@ -25,35 +27,66 @@ export default function CreateAccountScreen() {
   const [error, setError] = useState<string | null>(null);
   const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const authBusy = loading || googleLoading;
+  const authInFlightRef = useRef(false);
 
   async function handleCreateAccount() {
+    if (authBusy || authInFlightRef.current) {
+      return;
+    }
+
+    authInFlightRef.current = true;
     setLoading(true);
     setError(null);
     setVerificationEmail(null);
 
-    const result = await createAccount(supabase, {
-      displayName,
-      email,
-      password,
-      confirmPassword,
-    });
+    try {
+      const result = await createAccount(supabase, {
+        displayName,
+        email,
+        password,
+        confirmPassword,
+      });
 
-    if (!result.ok) {
-      setError(result.error);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.requiresEmailConfirmation) {
+        setVerificationEmail(email.trim().toLowerCase());
+        return;
+      }
+
+      // Rarely, Confirm Email is off and Supabase returns a session directly;
+      // the auth listener signs the user in and navigation moves to Home.
+    } finally {
+      authInFlightRef.current = false;
       setLoading(false);
+    }
+  }
+
+  async function handleContinueWithGoogle() {
+    if (authBusy || authInFlightRef.current) {
       return;
     }
 
-    if (result.requiresEmailConfirmation) {
-      setVerificationEmail(email.trim().toLowerCase());
-      setLoading(false);
-      return;
-    }
+    authInFlightRef.current = true;
+    setGoogleLoading(true);
+    setError(null);
 
-    // Rarely, Confirm Email is off and Supabase returns a session directly;
-    // the auth listener signs the user in and navigation moves to Home.
-    setLoading(false);
-    return;
+    try {
+      const result = await signInWithGoogle(supabase);
+
+      if (!result.ok && result.error) {
+        setError(result.error);
+      }
+    } finally {
+      authInFlightRef.current = false;
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -152,11 +185,11 @@ export default function CreateAccountScreen() {
 
               <Pressable
                 onPress={() => handleCreateAccount().catch(() => undefined)}
-                disabled={loading}
+                disabled={authBusy}
                 style={({ pressed }) => [
                   styles.button,
-                  pressed && !loading ? styles.buttonPressed : null,
-                  loading ? styles.buttonDisabled : null,
+                  pressed && !authBusy ? styles.buttonPressed : null,
+                  authBusy ? styles.buttonDisabled : null,
                 ]}
               >
                 {loading ? (
@@ -166,6 +199,34 @@ export default function CreateAccountScreen() {
                   </View>
                 ) : (
                   <Text style={styles.buttonText}>Create Account</Text>
+                )}
+              </Pressable>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Pressable
+                onPress={() => handleContinueWithGoogle().catch(() => undefined)}
+                disabled={authBusy}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  pressed && !authBusy ? styles.secondaryButtonPressed : null,
+                  authBusy ? styles.buttonDisabled : null,
+                ]}
+              >
+                {googleLoading ? (
+                  <View style={styles.secondaryButtonInner}>
+                    <ActivityIndicator color={mobileTheme.text} />
+                    <Text style={styles.secondaryButtonText}>Opening Google…</Text>
+                  </View>
+                ) : (
+                  <View style={styles.secondaryButtonInner}>
+                    <GoogleGlyph />
+                    <Text style={styles.secondaryButtonText}>Continue with Google</Text>
+                  </View>
                 )}
               </Pressable>
 
@@ -275,6 +336,47 @@ const styles = StyleSheet.create({
     color: mobileTheme.white,
     fontSize: 15,
     fontWeight: "700",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#D4D4D8",
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: mobileTheme.mutedSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  secondaryButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 16,
+  },
+  secondaryButtonPressed: {
+    backgroundColor: "#F4F4F5",
+  },
+  secondaryButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: mobileTheme.text,
   },
   errorCard: {
     borderRadius: 16,
