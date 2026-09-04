@@ -12,16 +12,18 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { displayNameSchema } from "@attendance/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
-import { AppLogo } from "../../components/branding";
 import { supabase } from "../../lib/supabase/client";
+import { createGuestSession } from "../../lib/auth/guest";
 import { useAuth } from "../../providers/auth-provider";
 
-const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
-
-export default function OnboardingScreen() {
+/**
+ * Guest entry. The anonymous Auth identity and guest profile are created ONLY
+ * when the user presses "Continue" — mounting this screen never calls
+ * `signInAnonymously()`.
+ */
+export default function GuestScreen() {
   const router = useRouter();
   const { refreshSessionContext } = useAuth();
   const [displayName, setDisplayName] = useState("");
@@ -29,35 +31,19 @@ export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleContinueAsGuest() {
-    const parsed = displayNameSchema.safeParse(displayName);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a display name.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
-    try {
-      const { error: signInError } = await supabase.auth.signInAnonymously();
-      if (signInError) {
-        throw signInError;
-      }
+    const result = await createGuestSession(supabase, displayName);
 
-      const { error: profileError } = await supabase.rpc("create_guest_profile", {
-        display_name: parsed.data,
-      });
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      await refreshSessionContext();
-      router.replace("/");
-    } catch (reason) {
-      setError(reason instanceof Error && reason.message ? reason.message : CONNECTION_ERROR);
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
+      return;
     }
+
+    await refreshSessionContext();
+    router.replace("/");
   }
 
   return (
@@ -76,9 +62,9 @@ export default function OnboardingScreen() {
           bounces={false}
         >
           <View style={styles.brandBlock}>
-            <AppLogo size={84} style={styles.brandMark} />
-            <Text style={styles.brandTitle}>QRLog</Text>
-            <Text style={styles.brandSubtitle}>Scan. Log. Done.</Text>
+            <Text style={styles.brandEyebrow}>No account required</Text>
+            <Text style={styles.brandTitle}>Continue as Guest</Text>
+            <Text style={styles.brandSubtitle}>No account required. You can join eligible activities right away.</Text>
           </View>
 
           <View style={styles.form}>
@@ -90,7 +76,7 @@ export default function OnboardingScreen() {
             ) : null}
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Enter your display name</Text>
+              <Text style={styles.fieldLabel}>Display name</Text>
               <TextInput
                 value={displayName}
                 onChangeText={setDisplayName}
@@ -101,6 +87,10 @@ export default function OnboardingScreen() {
                 style={styles.input}
               />
             </View>
+
+            <Text style={styles.guestNote}>
+              Your activity history stays on this device. You can create an account later to keep it across devices.
+            </Text>
 
             <Pressable
               onPress={() => handleContinueAsGuest().catch(() => undefined)}
@@ -121,12 +111,10 @@ export default function OnboardingScreen() {
               )}
             </Pressable>
 
-            <Text style={styles.guestNote}>You can join public activities right away, no account required.</Text>
+            <Link href="./sign-in" style={styles.backLink}>
+              Back to Sign In
+            </Link>
           </View>
-
-          <Link href="./sign-in" style={styles.signInLink}>
-            Already have an account? Sign In
-          </Link>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -154,15 +142,20 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   brandBlock: {
-    marginBottom: 44,
+    marginBottom: 32,
   },
-  brandMark: {
-    alignSelf: "center",
-    marginBottom: 16,
+  brandEyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+    color: mobileTheme.mutedSoft,
+    textAlign: "center",
+    marginBottom: 8,
   },
   brandTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.8,
@@ -247,13 +240,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: mobileTheme.muted,
-    textAlign: "center",
   },
-  signInLink: {
+  backLink: {
     alignSelf: "center",
     fontSize: 14,
     fontWeight: "700",
     color: mobileTheme.accent,
-    marginTop: 28,
+    marginTop: 8,
   },
 });

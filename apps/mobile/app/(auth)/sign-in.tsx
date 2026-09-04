@@ -17,23 +17,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { mobileTheme } from "../../components/mobile-ui";
 import { AppLogo } from "../../components/branding";
 import { supabase } from "../../lib/supabase/client";
+import { continueWithGoogle } from "../../lib/auth/google";
+import { friendlySignInError, logAuthFailure } from "../../lib/auth/friendly";
 
-const CONNECTION_ERROR = "Unable to connect to QRLog. Check your internet connection and try again.";
 const GENERIC_ERROR = "Invalid email or password.";
 
-function getFriendlyError(reason: unknown) {
-  if (reason instanceof Error) {
-    const message = reason.message.toLowerCase();
-    if (message.includes("fetch") || message.includes("network") || message.includes("timeout") || message.includes("econnrefused")) {
-      return CONNECTION_ERROR;
-    }
-    if (message.includes("invalid login credentials")) {
-      return GENERIC_ERROR;
-    }
-    return reason.message;
-  }
-
-  return GENERIC_ERROR;
+function GoogleGlyph() {
+  return (
+    <View style={styles.googleGlyph} accessibilityLabel="Google">
+      <Text style={styles.googleGlyphText}>G</Text>
+    </View>
+  );
 }
 
 export default function SignInScreen() {
@@ -41,6 +35,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSignIn() {
@@ -59,12 +54,26 @@ export default function SignInScreen() {
     });
 
     if (signInError) {
-      setError(getFriendlyError(signInError));
+      logAuthFailure("sign-in", signInError);
+      setError(friendlySignInError(signInError));
       setLoading(false);
       return;
     }
 
     setLoading(false);
+  }
+
+  async function handleContinueWithGoogle() {
+    setGoogleLoading(true);
+    setError(null);
+
+    const result = await continueWithGoogle(supabase);
+
+    if (!result.ok && result.error) {
+      setError(result.error);
+    }
+
+    setGoogleLoading(false);
   }
 
   return (
@@ -83,9 +92,9 @@ export default function SignInScreen() {
           bounces={false}
         >
           <View style={styles.brandBlock}>
-            <AppLogo size={72} style={styles.brandMark} />
-            <Text style={styles.brandTitle}>Sign In</Text>
-            <Text style={styles.brandSubtitle}>Use your QRLog account email.</Text>
+            <AppLogo size={80} style={styles.brandMark} />
+            <Text style={styles.brandTitle}>QRLog</Text>
+            <Text style={styles.brandSubtitle}>Scan. Log. Done.</Text>
           </View>
 
           <View style={styles.form}>
@@ -118,6 +127,7 @@ export default function SignInScreen() {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
                   placeholder="Enter your password"
                   placeholderTextColor={mobileTheme.mutedSoft}
                   style={styles.passwordInput}
@@ -151,8 +161,45 @@ export default function SignInScreen() {
               Forgot password?
             </Link>
 
-            <Link href="./community-sign-in" style={styles.communityLink}>
-              Sign in with a Community code instead
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Pressable
+              onPress={() => handleContinueWithGoogle().catch(() => undefined)}
+              disabled={googleLoading}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                pressed && !googleLoading ? styles.secondaryButtonPressed : null,
+                googleLoading ? styles.buttonDisabled : null,
+              ]}
+            >
+              {googleLoading ? (
+                <View style={styles.secondaryButtonInner}>
+                  <ActivityIndicator color={mobileTheme.text} />
+                  <Text style={styles.secondaryButtonText}>Opening Google…</Text>
+                </View>
+              ) : (
+                <View style={styles.secondaryButtonInner}>
+                  <GoogleGlyph />
+                  <Text style={styles.secondaryButtonText}>Continue with Google</Text>
+                </View>
+              )}
+            </Pressable>
+
+            <Link href="./guest" asChild>
+              <Pressable style={({ pressed }) => [styles.guestButton, pressed ? styles.secondaryButtonPressed : null]}>
+                <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              </Pressable>
+            </Link>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>New to QRLog?</Text>
+            <Link href="./create-account" style={styles.footerLink}>
+              Create an account
             </Link>
           </View>
         </ScrollView>
@@ -178,33 +225,33 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 28,
-    paddingTop: 44,
-    paddingBottom: 40,
+    paddingTop: 32,
+    paddingBottom: 32,
   },
   brandBlock: {
-    marginBottom: 36,
+    marginBottom: 28,
   },
   brandMark: {
     alignSelf: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   brandTitle: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.8,
     textAlign: "center",
   },
   brandSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 6,
+    fontSize: 15,
     color: mobileTheme.muted,
     fontWeight: "500",
     textAlign: "center",
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   field: {
     gap: 6,
@@ -278,7 +325,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 16,
     backgroundColor: mobileTheme.accent,
-    minHeight: 56,
+    minHeight: 54,
     paddingHorizontal: 18,
   },
   buttonPressed: {
@@ -303,10 +350,91 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: mobileTheme.accent,
   },
-  communityLink: {
-    alignSelf: "center",
-    fontSize: 13,
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#D4D4D8",
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: mobileTheme.mutedSoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  secondaryButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 16,
+  },
+  secondaryButtonPressed: {
+    backgroundColor: "#F4F4F5",
+  },
+  secondaryButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
     fontWeight: "700",
+    color: mobileTheme.text,
+  },
+  googleGlyph: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4285F4",
+  },
+  googleGlyphText: {
+    color: mobileTheme.white,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  guestButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 16,
+  },
+  guestButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: mobileTheme.text,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 24,
+  },
+  footerText: {
+    fontSize: 14,
     color: mobileTheme.muted,
+    fontWeight: "500",
+  },
+  footerLink: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: mobileTheme.accent,
   },
 });

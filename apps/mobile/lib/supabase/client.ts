@@ -20,5 +20,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE is the supported native flow: OAuth callbacks carry a short-lived
+    // `code` that is exchanged for a session on the device.
+    flowType: "pkce",
   },
 });
