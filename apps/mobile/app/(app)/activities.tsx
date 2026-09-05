@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { createRealtimeInvalidationChannel, formatDateInTimeZone, formatTimeInTimeZone } from "@attendance/shared";
+import { ActivityReportModal } from "../../components/activity-report-modal";
 import { MobileCard, MobileHeading, MobileShell, MobileSoftCard, mobileTheme } from "../../components/mobile-ui";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
@@ -14,6 +15,7 @@ export default function ActivitiesScreen() {
   const [tab, setTab] = useState<Tab>("joined");
   const [joined, setJoined] = useState<ActivityItem[]>([]);
   const [created, setCreated] = useState<ActivityItem[]>([]);
+  const [reportingActivity, setReportingActivity] = useState<ActivityItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
   const isNarrow = width < 360;
@@ -101,9 +103,18 @@ export default function ActivitiesScreen() {
       ) : null}
 
       {items.length ? (
-        items.map((item) => (
+        items.map((item) => {
+          const canReport = item.name !== "Activity unavailable" && Boolean(item.createdBy && item.createdBy !== profile.id);
+          return (
           <MobileCard key={item.activityId}>
-            <Text style={styles.activityName}>{item.name}</Text>
+            <View style={styles.activityTitleRow}>
+              <Text style={styles.activityName}>{item.name}</Text>
+              {canReport ? (
+                <Pressable onPress={() => setReportingActivity(item)} style={styles.reportButton}>
+                  <Text style={styles.reportButtonText}>Report</Text>
+                </Pressable>
+              ) : null}
+            </View>
             <Text style={styles.dateMeta}>{formatDateInTimeZone(item.startedAt || item.timeIn || new Date().toISOString(), timezone)}</Text>
 
             <View style={styles.sourceRow}>
@@ -128,8 +139,18 @@ export default function ActivitiesScreen() {
                 </View>
               </View>
             ) : null}
+            {canReport ? (
+              <ActivityReportModal
+                activityId={item.activityId}
+                activityName={item.name}
+                canReportOrganizer={canReport}
+                visible={reportingActivity?.activityId === item.activityId}
+                onClose={() => setReportingActivity(null)}
+              />
+            ) : null}
           </MobileCard>
-        ))
+          );
+        })
       ) : (
         <MobileCard>
           <Text style={styles.empty}>
@@ -177,11 +198,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   activityName: {
+    flex: 1,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: "800",
     color: mobileTheme.text,
     letterSpacing: -0.3,
+  },
+  activityTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reportButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  reportButtonText: {
+    color: mobileTheme.accent,
+    fontSize: 12,
+    fontWeight: "800",
   },
   dateMeta: {
     marginTop: 4,

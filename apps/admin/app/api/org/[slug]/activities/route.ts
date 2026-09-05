@@ -8,6 +8,9 @@ const DEFAULT_QR_TTL_SECONDS = 18000;
 const startActivitySchema = z.object({
   name: z.string().trim().min(1, "Activity name is required.").max(200, "Activity name is too long."),
   visibility: z.enum(["community_only", "anyone_with_code"]).default("community_only"),
+  acceptedTerms: z.literal(true, {
+    error: "You must agree to the Terms of Use and Acceptable Use Policy before creating an activity.",
+  }),
 });
 
 export async function POST(
@@ -32,6 +35,7 @@ export async function POST(
     activity_name: parsed.data.name,
     target_organization_id: adminContext.organization.id,
     visibility: parsed.data.visibility,
+    accepted_terms: parsed.data.acceptedTerms,
   });
 
   if (createError || !activity) {

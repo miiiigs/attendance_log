@@ -108,6 +108,36 @@ export interface PlatformOrganizationDetail {
   }>;
 }
 
+export interface PlatformActivityReportItem {
+  id: string;
+  activityId: string;
+  activityName: string;
+  activityStatus: string;
+  activityModerationStatus: "visible" | "hidden";
+  organizationName: string | null;
+  organizationCode: string | null;
+  creatorEmail: string | null;
+  targetType: "activity" | "organizer";
+  reason: string;
+  details: string | null;
+  status: "pending" | "dismissed" | "actioned";
+  createdAt: string;
+  reviewedAt: string | null;
+  resolution: string | null;
+}
+
+export interface PlatformModerationQueue {
+  pendingReports: PlatformActivityReportItem[];
+  hiddenActivities: Array<{
+    id: string;
+    name: string;
+    organizationName: string | null;
+    organizationCode: string | null;
+    moderatedAt: string | null;
+    moderationReason: string | null;
+  }>;
+}
+
 function normalizePage(page?: number) {
   if (!Number.isFinite(page) || !page || page < 1) {
     return 1;
@@ -504,5 +534,63 @@ export async function getPlatformOrganizationById(id: string): Promise<PlatformO
       startedAt: activity.started_at,
       endedAt: activity.ended_at,
     })),
+  };
+}
+
+export async function getPlatformModerationQueue(): Promise<PlatformModerationQueue> {
+  const supabase = await createSupabaseServerClient();
+
+  const [{ data: reports }, { data: hiddenActivities }] = await Promise.all([
+    supabase
+      .from("activity_reports")
+      .select(
+        "id, activity_id, target_type, reason, details, status, created_at, reviewed_at, resolution, activities(id, name, status, moderation_status, organizations(name, code), profiles!activities_created_by_fkey(email))",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(100),
+    supabase
+      .from("activities")
+      .select("id, name, moderated_at, moderation_reason, organizations(name, code)")
+      .eq("moderation_status", "hidden")
+      .order("moderated_at", { ascending: false })
+      .limit(100),
+  ]);
+
+  return {
+    pendingReports: (reports ?? []).map((report) => {
+      const activity = Array.isArray(report.activities) ? report.activities[0] : report.activities;
+      const organization = Array.isArray(activity?.organizations) ? activity?.organizations[0] : activity?.organizations;
+      const creator = Array.isArray(activity?.profiles) ? activity?.profiles[0] : activity?.profiles;
+
+      return {
+        id: report.id,
+        activityId: report.activity_id,
+        activityName: activity?.name ?? "Activity unavailable",
+        activityStatus: activity?.status ?? "unknown",
+        activityModerationStatus: (activity?.moderation_status ?? "hidden") as "visible" | "hidden",
+        organizationName: organization?.name ?? null,
+        organizationCode: organization?.code ?? null,
+        creatorEmail: creator?.email ?? null,
+        targetType: report.target_type as "activity" | "organizer",
+        reason: report.reason,
+        details: report.details,
+        status: report.status as "pending" | "dismissed" | "actioned",
+        createdAt: report.created_at,
+        reviewedAt: report.reviewed_at,
+        resolution: report.resolution,
+      };
+    }),
+    hiddenActivities: (hiddenActivities ?? []).map((activity) => {
+      const organization = Array.isArray(activity.organizations) ? activity.organizations[0] : activity.organizations;
+      return {
+        id: activity.id,
+        name: activity.name,
+        organizationName: organization?.name ?? null,
+        organizationCode: organization?.code ?? null,
+        moderatedAt: activity.moderated_at,
+        moderationReason: activity.moderation_reason,
+      };
+    }),
   };
 }

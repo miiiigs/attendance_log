@@ -44,11 +44,14 @@ export async function loadMyActivities(userId: string): Promise<{ joined: Activi
     new Set([...joinedActivityIds, ...(createdActivities ?? []).map((activity) => activity.id)]),
   );
 
-  let activities = new Map<string, { name: string; status: string; visibility: string; organization_id: string | null }>();
+  let activities = new Map<
+    string,
+    { name: string; status: string; visibility: string; organization_id: string | null; created_by: string | null }
+  >();
   if (activityIds.length) {
     const { data } = await supabase
       .from("activities")
-      .select("id, name, status, visibility, organization_id")
+      .select("id, name, status, visibility, organization_id, created_by")
       .in("id", activityIds);
     activities = new Map((data ?? []).map((activity) => [activity.id, activity]));
   }
@@ -91,7 +94,7 @@ export async function loadMyActivities(userId: string): Promise<{ joined: Activi
       return {
         logId: log.id,
         activityId: log.activity_id,
-        name: activity?.name ?? "Activity",
+        name: activity?.name ?? "Activity unavailable",
         status: activity?.status ?? "ended",
         visibility: activity?.visibility ?? "community_only",
         startedAt: "",
@@ -100,7 +103,7 @@ export async function loadMyActivities(userId: string): Promise<{ joined: Activi
         organizationName: activity?.organization_id ? organizationNames.get(activity.organization_id) ?? null : null,
         timeIn: log.time_in,
         timeOut: log.time_out,
-        createdBy: null,
+        createdBy: activity?.created_by ?? null,
       };
     })
     .filter((item) => item.logId);

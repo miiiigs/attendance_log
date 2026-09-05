@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import ViewShot, { captureRef, type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { MobileHeading, MobileShell, MobileSoftCard, mobileTheme } from "../../components/mobile-ui";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
+import { QRLOG_TERMS_URL } from "../../lib/compliance-links";
 
 interface CreatedResult {
   activityId: string;
@@ -32,6 +33,7 @@ export default function CreateActivityScreen() {
   const [name, setName] = useState("");
   const [ownership, setOwnership] = useState<string>("public");
   const [visibility, setVisibility] = useState<"community_only" | "anyone_with_code">("community_only");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CreatedResult | null>(null);
@@ -43,6 +45,11 @@ export default function CreateActivityScreen() {
   async function handleCreate() {
     if (!name.trim()) {
       setError("Activity name is required.");
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError("You must agree to the Terms of Use and Acceptable Use Policy before creating an activity.");
       return;
     }
 
@@ -58,6 +65,7 @@ export default function CreateActivityScreen() {
           activity_name: name.trim(),
           target_organization_id: communityContext.organizationId,
           visibility,
+          accepted_terms: true,
         });
         if (rpcError) {
           throw rpcError;
@@ -70,6 +78,7 @@ export default function CreateActivityScreen() {
           activity_name: name.trim(),
           target_organization_id: selectedAdminCommunity.organizationId,
           visibility,
+          accepted_terms: true,
         });
         if (rpcError) {
           throw rpcError;
@@ -80,6 +89,7 @@ export default function CreateActivityScreen() {
       } else {
         const { data, error: rpcError } = await supabase.rpc("create_public_activity", {
           activity_name: name.trim(),
+          accepted_terms: true,
         });
         if (rpcError) {
           throw rpcError;
@@ -253,6 +263,24 @@ export default function CreateActivityScreen() {
           </View>
         ) : null}
 
+        <View style={styles.termsRow}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: acceptedTerms }}
+            onPress={() => setAcceptedTerms((value) => !value)}
+            style={[styles.checkbox, acceptedTerms ? styles.checkboxChecked : null]}
+          >
+            {acceptedTerms ? <Text style={styles.checkboxMark}>✓</Text> : null}
+          </Pressable>
+          <Text style={styles.termsText}>
+            I agree to the{" "}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL(QRLOG_TERMS_URL).catch(() => undefined)}>
+              Terms of Use and Acceptable Use Policy
+            </Text>
+            .
+          </Text>
+        </View>
+
         <Pressable
           onPress={() => handleCreate().catch(() => undefined)}
           disabled={loading}
@@ -327,6 +355,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: mobileTheme.danger,
+  },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panel,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    borderColor: mobileTheme.accent,
+    backgroundColor: mobileTheme.accent,
+  },
+  checkboxMark: {
+    color: mobileTheme.white,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    color: mobileTheme.muted,
+  },
+  termsLink: {
+    color: mobileTheme.accent,
+    fontWeight: "800",
+    textDecorationLine: "underline",
   },
   button: {
     minHeight: 54,

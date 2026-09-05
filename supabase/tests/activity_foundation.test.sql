@@ -72,12 +72,12 @@ select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA
 
 select lives_ok(
-  $$ select * from public.create_activity('Morning Seminar'); $$,
+  $$ select * from public.create_activity('Morning Seminar', accepted_terms => true); $$,
   'org admin can create an activity'
 );
 
 select throws_ok(
-  $$ select * from public.create_activity('Another Seminar'); $$,
+  $$ select * from public.create_activity('Another Seminar', accepted_terms => true); $$,
   'P0001',
   'An active activity already exists for this organization.',
   'second active activity in the same organization is rejected'
@@ -86,7 +86,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', true); -- memberB
 
 select throws_ok(
-  $$ select * from public.create_activity('Sneaky Activity'); $$,
+  $$ select * from public.create_activity('Sneaky Activity', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'plain member cannot create an activity'
@@ -95,14 +95,14 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000004', true); -- adminB
 
 select lives_ok(
-  $$ select * from public.create_activity('Evening Meeting'); $$,
+  $$ select * from public.create_activity('Evening Meeting', accepted_terms => true); $$,
   'a different organization may have its own active activity simultaneously'
 );
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000005', true); -- adminS (suspended org)
 
 select throws_ok(
-  $$ select * from public.create_activity('Doomed Activity'); $$,
+  $$ select * from public.create_activity('Doomed Activity', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'suspended organization rejects activity creation (admins lose org_admin scope)'
@@ -274,7 +274,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true); -- adminA
 
 select lives_ok(
-  $$ select * from public.create_activity('Evening Activity'); $$,
+  $$ select * from public.create_activity('Evening Activity', accepted_terms => true); $$,
   'a new active activity can start after the previous one ended'
 );
 

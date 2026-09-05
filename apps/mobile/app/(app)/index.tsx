@@ -4,6 +4,7 @@ import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "
 import { createRealtimeInvalidationChannel, getAttendanceGreeting, getDisplayName } from "@attendance/shared";
 import { MobileCard, MobileShell, MobileStatusChip, MobileSoftCard, mobileTheme } from "../../components/mobile-ui";
 import { OrganizationLogo } from "../../components/branding";
+import { ActivityReportModal } from "../../components/activity-report-modal";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { loadMyActivities, activitySourceLabel, type ActivityItem } from "../../lib/activities";
@@ -13,6 +14,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
+  const [reportingActivity, setReportingActivity] = useState<ActivityItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const requestSeq = useRef(0);
@@ -201,19 +203,36 @@ export default function HomeScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </MobileSoftCard>
         ) : recentActivities.length ? (
-          recentActivities.map((item) => (
-            <MobileCard key={item.logId ?? item.activityId}>
-              <View style={styles.activityCardHeader}>
-                <Text style={styles.activityName}>{item.name}</Text>
-                <MobileStatusChip label={activitySourceLabel(item)} tone="neutral" />
-              </View>
-              {item.timeOut ? (
-                <Text style={styles.activityMeta}>Completed</Text>
-              ) : (
-                <Text style={styles.activityMeta}>In progress</Text>
-              )}
-            </MobileCard>
-          ))
+          recentActivities.map((item) => {
+            const canReportOrganizer = Boolean(item.createdBy && item.createdBy !== profile.id);
+            return (
+              <MobileCard key={item.logId ?? item.activityId}>
+                <View style={styles.activityCardHeader}>
+                  <Text style={styles.activityName}>{item.name}</Text>
+                  <MobileStatusChip label={activitySourceLabel(item)} tone="neutral" />
+                </View>
+                <View style={styles.activityFooter}>
+                  {item.timeOut ? (
+                    <Text style={styles.activityMeta}>Completed</Text>
+                  ) : (
+                    <Text style={styles.activityMeta}>In progress</Text>
+                  )}
+                  {item.name !== "Activity unavailable" ? (
+                    <Pressable onPress={() => setReportingActivity(item)} style={styles.reportButton}>
+                      <Text style={styles.reportButtonText}>Report</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <ActivityReportModal
+                  activityId={item.activityId}
+                  activityName={item.name}
+                  canReportOrganizer={canReportOrganizer}
+                  visible={reportingActivity?.activityId === item.activityId}
+                  onClose={() => setReportingActivity(null)}
+                />
+              </MobileCard>
+            );
+          })
         ) : (
           <MobileCard>
             <Text style={styles.activityEmpty}>You haven&apos;t joined any activities yet.</Text>
@@ -438,6 +457,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: mobileTheme.muted,
+  },
+  activityFooter: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  reportButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  reportButtonText: {
+    color: mobileTheme.accent,
+    fontSize: 12,
+    fontWeight: "800",
   },
   activityEmpty: {
     fontSize: 14,

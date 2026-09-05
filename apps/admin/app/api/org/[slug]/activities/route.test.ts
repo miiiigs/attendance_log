@@ -70,17 +70,33 @@ describe("POST /api/org/[slug]/activities", () => {
     };
     requireOrgAdminApiContext.mockResolvedValue(adminContext);
 
-    const response = await post({ name: "Morning Seminar" });
+    const response = await post({ name: "Morning Seminar", acceptedTerms: true });
 
     expect(response.status).toBe(200);
     expect(supabase.rpc).toHaveBeenCalledWith("create_activity", {
       activity_name: "Morning Seminar",
       target_organization_id: "org-1",
       visibility: "community_only",
+      accepted_terms: true,
     });
     expect(supabase.rpc).toHaveBeenCalledWith("create_activity_qr_session", {
       target_activity_id: "activity-1",
       ttl_seconds: 18000,
     });
+  });
+
+  it("rejects activity creation without Terms acceptance", async () => {
+    const supabase = createUserScopedSupabase();
+    requireOrgAdminApiContext.mockResolvedValue({
+      organization: { id: "org-1", name: "SCPPA", code: "SCPPA", slug: "scppa", timezone: "Asia/Manila", status: "active" },
+      supabase,
+    });
+
+    const response = await post({ name: "Morning Seminar" });
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("You must agree to the Terms of Use and Acceptable Use Policy before creating an activity.");
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });

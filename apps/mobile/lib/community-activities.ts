@@ -7,6 +7,7 @@ export interface CommunityActivity {
   visibility: string;
   started_at: string;
   ended_at: string | null;
+  created_by: string | null;
 }
 
 interface CommunityActivitiesResult {
@@ -49,7 +50,7 @@ export async function loadCommunityActivities(
 ): Promise<CommunityActivity[]> {
   const { data, error } = await client
     .from("activities")
-    .select("id, name, status, visibility, started_at, ended_at")
+    .select("id, name, status, visibility, started_at, ended_at, created_by")
     .eq("organization_id", communityId)
     .order("created_at", { ascending: false })
     .limit(20);

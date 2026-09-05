@@ -59,6 +59,7 @@ describe("Community activity loading guards", () => {
           visibility: "community_only",
           started_at: "2026-09-04T00:00:00.000Z",
           ended_at: null,
+          created_by: "creator-1",
         },
       ],
       error: null,
@@ -68,7 +69,7 @@ describe("Community activity loading guards", () => {
 
     expect(activities).toHaveLength(1);
     expect(from).toHaveBeenCalledWith("activities");
-    expect(select).toHaveBeenCalledWith("id, name, status, visibility, started_at, ended_at");
+    expect(select).toHaveBeenCalledWith("id, name, status, visibility, started_at, ended_at, created_by");
     expect(query.eq).toHaveBeenCalledWith("organization_id", validCommunityId);
     expect(query.order).toHaveBeenCalledWith("created_at", { ascending: false });
     expect(query.limit).toHaveBeenCalledWith(20);
