@@ -684,15 +684,6 @@ begin
     raise exception 'Activity is unavailable.';
   end if;
 
-  if exists (
-    select 1
-    from public.user_blocks block
-    where block.blocker_user_id = current_user_id
-      and block.blocked_user_id = activity_row.created_by
-  ) then
-    raise exception 'Activity is unavailable.';
-  end if;
-
   if activity_row.organization_id is null then
     if not public.is_platform_admin() and activity_row.created_by is distinct from auth.uid() then
       raise exception 'Only the activity creator can create activity QR codes.';
@@ -835,6 +826,15 @@ begin
   end if;
 
   if activity_row.moderation_status <> 'visible' then
+    raise exception 'Activity is unavailable.';
+  end if;
+
+  if exists (
+    select 1
+    from public.user_blocks block
+    where block.blocker_user_id = current_user_id
+      and block.blocked_user_id = activity_row.created_by
+  ) then
     raise exception 'Activity is unavailable.';
   end if;
 

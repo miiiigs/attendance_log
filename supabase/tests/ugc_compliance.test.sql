@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(40);
+select plan(42);
 
 insert into public.organizations (id, name, code, slug, status, timezone) values
   ('eeeeeee1-0000-0000-0000-000000000001', 'UGC Org A', 'UGCA', 'ugc-org-a', 'active', 'Asia/Manila'),
@@ -198,6 +198,18 @@ select throws_ok(
   'P0001',
   'Activity is unavailable.',
   'blocked organizer QR is rejected for blocker'
+);
+
+select is(
+  (select count(*)::integer from public.activity_logs where activity_id = :'blocked_public_id'),
+  0,
+  'blocked scan creates no activity_log'
+);
+
+select is(
+  (select count(*)::integer from public.activity_scans where activity_id = :'blocked_public_id'),
+  0,
+  'blocked scan creates no activity_scan'
 );
 
 select lives_ok(
