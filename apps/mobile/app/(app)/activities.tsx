@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { getOrgTimezone } from "../../lib/config";
 import { loadMyActivities, type ActivityItem } from "../../lib/activities";
+import { canReportActivity, canReportOrganizer } from "../../lib/reports";
 
 type Tab = "joined" | "created";
 
@@ -104,12 +105,13 @@ export default function ActivitiesScreen() {
 
       {items.length ? (
         items.map((item) => {
-          const canReport = item.name !== "Activity unavailable" && Boolean(item.createdBy && item.createdBy !== profile.id);
+          const canReportActivityForItem = canReportActivity(item.name);
+          const canReportOrganizerForItem = canReportOrganizer(item.createdBy, profile.id);
           return (
           <MobileCard key={item.activityId}>
             <View style={styles.activityTitleRow}>
               <Text style={styles.activityName}>{item.name}</Text>
-              {canReport ? (
+              {canReportActivityForItem ? (
                 <Pressable onPress={() => setReportingActivity(item)} style={styles.reportButton}>
                   <Text style={styles.reportButtonText}>Report</Text>
                 </Pressable>
@@ -139,11 +141,11 @@ export default function ActivitiesScreen() {
                 </View>
               </View>
             ) : null}
-            {canReport ? (
+            {canReportActivityForItem ? (
               <ActivityReportModal
                 activityId={item.activityId}
                 activityName={item.name}
-                canReportOrganizer={canReport}
+                canReportOrganizer={canReportOrganizerForItem}
                 visible={reportingActivity?.activityId === item.activityId}
                 onClose={() => setReportingActivity(null)}
               />

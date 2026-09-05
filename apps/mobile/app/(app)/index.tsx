@@ -8,6 +8,7 @@ import { ActivityReportModal } from "../../components/activity-report-modal";
 import { useAuth } from "../../providers/auth-provider";
 import { supabase } from "../../lib/supabase/client";
 import { loadMyActivities, activitySourceLabel, type ActivityItem } from "../../lib/activities";
+import { canReportActivity, canReportOrganizer } from "../../lib/reports";
 
 export default function HomeScreen() {
   const { profile, memberships, signOut } = useAuth();
@@ -204,7 +205,8 @@ export default function HomeScreen() {
           </MobileSoftCard>
         ) : recentActivities.length ? (
           recentActivities.map((item) => {
-            const canReportOrganizer = Boolean(item.createdBy && item.createdBy !== profile.id);
+            const canReportActivityForItem = canReportActivity(item.name);
+            const canReportOrganizerForItem = canReportOrganizer(item.createdBy, profile.id);
             return (
               <MobileCard key={item.logId ?? item.activityId}>
                 <View style={styles.activityCardHeader}>
@@ -217,19 +219,21 @@ export default function HomeScreen() {
                   ) : (
                     <Text style={styles.activityMeta}>In progress</Text>
                   )}
-                  {item.name !== "Activity unavailable" ? (
+                  {canReportActivityForItem ? (
                     <Pressable onPress={() => setReportingActivity(item)} style={styles.reportButton}>
                       <Text style={styles.reportButtonText}>Report</Text>
                     </Pressable>
                   ) : null}
                 </View>
-                <ActivityReportModal
-                  activityId={item.activityId}
-                  activityName={item.name}
-                  canReportOrganizer={canReportOrganizer}
-                  visible={reportingActivity?.activityId === item.activityId}
-                  onClose={() => setReportingActivity(null)}
-                />
+                {canReportActivityForItem ? (
+                  <ActivityReportModal
+                    activityId={item.activityId}
+                    activityName={item.name}
+                    canReportOrganizer={canReportOrganizerForItem}
+                    visible={reportingActivity?.activityId === item.activityId}
+                    onClose={() => setReportingActivity(null)}
+                  />
+                ) : null}
               </MobileCard>
             );
           })

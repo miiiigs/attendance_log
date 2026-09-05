@@ -72,7 +72,19 @@ create unique index if not exists activity_reports_one_pending_per_target_idx
 create index if not exists activity_reports_pending_created_idx
   on public.activity_reports (status, created_at desc);
 
+create table if not exists public.user_blocks (
+  blocker_user_id uuid not null references public.profiles(id) on delete cascade,
+  blocked_user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_user_id, blocked_user_id),
+  constraint user_blocks_no_self_block check (blocker_user_id <> blocked_user_id)
+);
+
+create index if not exists user_blocks_blocked_user_idx
+  on public.user_blocks (blocked_user_id);
+
 alter table public.activity_reports enable row level security;
+alter table public.user_blocks enable row level security;
 
 drop policy if exists "activity_reports_select_platform" on public.activity_reports;
 create policy "activity_reports_select_platform"
@@ -85,6 +97,18 @@ revoke all on table public.activity_reports from public;
 revoke all on table public.activity_reports from anon;
 revoke all on table public.activity_reports from authenticated;
 grant select on table public.activity_reports to authenticated;
+
+drop policy if exists "user_blocks_select_own" on public.user_blocks;
+create policy "user_blocks_select_own"
+on public.user_blocks
+for select
+to authenticated
+using (blocker_user_id = auth.uid());
+
+revoke all on table public.user_blocks from public;
+revoke all on table public.user_blocks from anon;
+revoke all on table public.user_blocks from authenticated;
+grant select on table public.user_blocks to authenticated;
 
 drop function if exists public.create_public_activity(text);
 
@@ -236,10 +260,18 @@ using (
       or public.has_activity_log(id)
       or created_by = auth.uid()
     )
+    and not exists (
+      select 1
+      from public.user_blocks block
+      where block.blocker_user_id = auth.uid()
+        and block.blocked_user_id = activities.created_by
+    )
   )
 );
 
-create or replace function public.can_report_activity(target_activity_id uuid, reporter_id uuid)
+drop function if exists public.can_report_activity(uuid, uuid);
+
+create or replace function public.can_report_activity(target_activity_id uuid)
 returns boolean
 language sql
 security definer
@@ -251,11 +283,20 @@ as $$
     where activity.id = target_activity_id
       and activity.moderation_status = 'visible'
       and (
-        activity.created_by = reporter_id
+        public.is_platform_admin()
+        or activity.created_by = auth.uid()
         or public.is_organization_admin(activity.organization_id)
         or public.is_organization_member(activity.organization_id)
         or public.has_activity_log(activity.id)
-        or activity.visibility = 'anyone_with_code'
+      )
+      and (
+        public.is_platform_admin()
+        or not exists (
+          select 1
+          from public.user_blocks block
+          where block.blocker_user_id = auth.uid()
+            and block.blocked_user_id = activity.created_by
+        )
       )
   );
 $$;
@@ -316,7 +357,7 @@ begin
     raise exception 'Activity not found.';
   end if;
 
-  if not public.can_report_activity(target_activity_id, current_user_id) then
+  if not public.can_report_activity(target_activity_id) then
     raise exception 'Activity not found.';
   end if;
 
@@ -369,6 +410,7 @@ declare
   current_user_id uuid := auth.uid();
   report_row public.activity_reports;
   note text := nullif(btrim(coalesce(moderator_note, '')), '');
+  moderation_timestamp timestamptz := now();
 begin
   if current_user_id is null or not public.is_platform_admin() then
     raise exception 'Only platform administrators can moderate reports.';
@@ -387,9 +429,44 @@ begin
     raise exception 'Report not found.';
   end if;
 
+  with closed_logs as (
+    update public.activity_logs
+    set time_out = moderation_timestamp,
+        updated_at = moderation_timestamp
+    where activity_id = report_row.activity_id
+      and time_out is null
+      and exists (
+        select 1
+        from public.activities activity
+        where activity.id = report_row.activity_id
+          and activity.status = 'active'
+      )
+    returning organization_id, activity_id, membership_id, user_id
+  )
+  insert into public.activity_scans (
+    organization_id,
+    activity_id,
+    membership_id,
+    user_id,
+    qr_session_id,
+    scan_type,
+    scanned_at
+  )
+  select
+    organization_id,
+    activity_id,
+    membership_id,
+    user_id,
+    null,
+    'time_out'::public.attendance_scan_type,
+    moderation_timestamp
+  from closed_logs;
+
   update public.activities
-  set moderation_status = 'hidden',
-      moderated_at = now(),
+  set status = case when status = 'active' then 'ended'::public.activity_status else status end,
+      ended_at = case when status = 'active' then moderation_timestamp else ended_at end,
+      moderation_status = 'hidden',
+      moderated_at = moderation_timestamp,
       moderated_by = current_user_id,
       moderation_reason = coalesce(note, 'Hidden after UGC report review.')
   where id = report_row.activity_id;
@@ -401,7 +478,7 @@ begin
 
   update public.activity_reports
   set status = 'actioned',
-      reviewed_at = now(),
+      reviewed_at = moderation_timestamp,
       reviewed_by = current_user_id,
       resolution = coalesce(note, 'Activity hidden.')
   where id = target_report_id
@@ -484,6 +561,89 @@ begin
 end;
 $$;
 
+create or replace function public.block_activity_organizer(target_activity_id uuid)
+returns table (
+  blocked_user_id uuid,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  activity_row public.activities;
+  block_row public.user_blocks;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  if target_activity_id is null then
+    raise exception 'Activity id is required.';
+  end if;
+
+  select *
+  into activity_row
+  from public.activities
+  where id = target_activity_id;
+
+  if not found or activity_row.moderation_status <> 'visible' then
+    raise exception 'Activity not found.';
+  end if;
+
+  if not public.can_report_activity(target_activity_id) then
+    raise exception 'Activity not found.';
+  end if;
+
+  if activity_row.created_by is null then
+    raise exception 'Organizer is unavailable.';
+  end if;
+
+  if activity_row.created_by = current_user_id then
+    raise exception 'You cannot block yourself.';
+  end if;
+
+  insert into public.user_blocks (blocker_user_id, blocked_user_id)
+  values (current_user_id, activity_row.created_by)
+  on conflict (blocker_user_id, blocked_user_id)
+  do update set created_at = public.user_blocks.created_at
+  returning * into block_row;
+
+  return query
+  select block_row.blocked_user_id, block_row.created_at;
+end;
+$$;
+
+create or replace function public.unblock_user(target_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required.';
+  end if;
+
+  if target_user_id is null then
+    raise exception 'User id is required.';
+  end if;
+
+  if target_user_id = current_user_id then
+    raise exception 'You cannot unblock yourself.';
+  end if;
+
+  delete from public.user_blocks
+  where blocker_user_id = current_user_id
+    and blocked_user_id = target_user_id;
+
+  return true;
+end;
+$$;
+
 create or replace function public.create_activity_qr_session(
   target_activity_id uuid,
   ttl_seconds integer default 18000
@@ -521,6 +681,15 @@ begin
   end if;
 
   if activity_row.moderation_status <> 'visible' then
+    raise exception 'Activity is unavailable.';
+  end if;
+
+  if exists (
+    select 1
+    from public.user_blocks block
+    where block.blocker_user_id = current_user_id
+      and block.blocked_user_id = activity_row.created_by
+  ) then
     raise exception 'Activity is unavailable.';
   end if;
 
@@ -767,9 +936,9 @@ begin
 end;
 $$;
 
-revoke all on function public.can_report_activity(uuid, uuid) from public;
-revoke all on function public.can_report_activity(uuid, uuid) from anon;
-grant execute on function public.can_report_activity(uuid, uuid) to authenticated;
+revoke all on function public.can_report_activity(uuid) from public;
+revoke all on function public.can_report_activity(uuid) from anon;
+revoke all on function public.can_report_activity(uuid) from authenticated;
 
 revoke all on function public.create_public_activity(text, boolean) from public;
 revoke all on function public.create_public_activity(text, boolean) from anon;
@@ -782,6 +951,14 @@ grant execute on function public.create_activity(text, uuid, public.activity_vis
 revoke all on function public.report_activity(uuid, text, text, text) from public;
 revoke all on function public.report_activity(uuid, text, text, text) from anon;
 grant execute on function public.report_activity(uuid, text, text, text) to authenticated;
+
+revoke all on function public.block_activity_organizer(uuid) from public;
+revoke all on function public.block_activity_organizer(uuid) from anon;
+grant execute on function public.block_activity_organizer(uuid) to authenticated;
+
+revoke all on function public.unblock_user(uuid) from public;
+revoke all on function public.unblock_user(uuid) from anon;
+grant execute on function public.unblock_user(uuid) to authenticated;
 
 revoke all on function public.platform_hide_activity_report(uuid, text) from public;
 revoke all on function public.platform_hide_activity_report(uuid, text) from anon;

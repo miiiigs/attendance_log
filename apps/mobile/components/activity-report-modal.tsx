@@ -1,10 +1,30 @@
 import { useState } from "react";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { reportReasons, submitActivityReport, type ReportReason, type ReportTarget } from "../lib/reports";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  blockActivityOrganizer,
+  reportReasons,
+  submitActivityReport,
+  type ReportReason,
+  type ReportTarget,
+} from "../lib/reports";
 import { mobileTheme } from "./mobile-ui";
 
 const GENERIC_FAILURE = "Unable to submit your report. Please try again.";
+const GENERIC_BLOCK_FAILURE = "Unable to block this organizer. Please try again.";
 const SUCCESS = "Thanks. Your report has been submitted for review.";
+const BLOCK_SUCCESS = "Organizer blocked. Their activities will be hidden for your account.";
 
 export function ActivityReportModal({
   activityId,
@@ -23,6 +43,7 @@ export function ActivityReportModal({
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +51,7 @@ export function ActivityReportModal({
     setTarget(null);
     setReason(null);
     setDetails("");
+    setBlocking(false);
     setMessage(null);
     setError(null);
     onClose();
@@ -58,79 +80,126 @@ export function ActivityReportModal({
     }
   }
 
+  async function blockOrganizer() {
+    setBlocking(true);
+    setError(null);
+    try {
+      await blockActivityOrganizer(activityId);
+      setMessage(BLOCK_SUCCESS);
+    } catch {
+      setError(GENERIC_BLOCK_FAILURE);
+    } finally {
+      setBlocking(false);
+    }
+  }
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={resetAndClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
-          <Text style={styles.eyebrow}>Report</Text>
-          <Text style={styles.title} numberOfLines={2}>
-            {activityName}
-          </Text>
+      <SafeAreaView style={styles.backdrop} edges={["top", "bottom"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          style={styles.keyboardView}
+        >
+          <View style={styles.sheet}>
+            <Text style={styles.eyebrow}>Report</Text>
+            <Text style={styles.title} numberOfLines={2}>
+              {activityName}
+            </Text>
 
-          {message ? (
-            <View style={styles.success}>
-              <Text style={styles.successText}>{message}</Text>
-              <Pressable onPress={resetAndClose} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>Done</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.form}>
-              <View style={styles.section}>
-                <Text style={styles.label}>What are you reporting?</Text>
-                <View style={styles.choiceGrid}>
-                  <Choice label="Report activity" selected={target === "activity"} onPress={() => setTarget("activity")} />
-                  {canReportOrganizer ? (
-                    <Choice label="Report organizer" selected={target === "organizer"} onPress={() => setTarget("organizer")} />
-                  ) : null}
-                </View>
+            {message ? (
+              <View style={styles.success}>
+                <Text style={styles.successText}>{message}</Text>
+                <Pressable onPress={resetAndClose} style={styles.primaryButton}>
+                  <Text style={styles.primaryButtonText}>Done</Text>
+                </Pressable>
               </View>
+            ) : (
+              <View style={styles.form}>
+                <ScrollView
+                  style={styles.scrollArea}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.scrollContent}
+                >
+                  <View style={styles.section}>
+                    <Text style={styles.label}>What are you reporting?</Text>
+                    <View style={styles.choiceGrid}>
+                      <Choice label="Report activity" selected={target === "activity"} onPress={() => setTarget("activity")} />
+                      {canReportOrganizer ? (
+                        <Choice label="Report organizer" selected={target === "organizer"} onPress={() => setTarget("organizer")} />
+                      ) : null}
+                    </View>
+                  </View>
 
-              <View style={styles.section}>
-                <Text style={styles.label}>Reason</Text>
-                <View style={styles.reasonList}>
-                  {reportReasons.map((item) => (
-                    <Choice
-                      key={item.value}
-                      label={item.label}
-                      selected={reason === item.value}
-                      onPress={() => setReason(item.value)}
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Reason</Text>
+                    <View style={styles.reasonList}>
+                      {reportReasons.map((item) => (
+                        <Choice
+                          key={item.value}
+                          label={item.label}
+                          selected={reason === item.value}
+                          onPress={() => setReason(item.value)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Details optional</Text>
+                    <TextInput
+                      value={details}
+                      onChangeText={setDetails}
+                      multiline
+                      maxLength={1000}
+                      placeholder="Add anything reviewers should know."
+                      placeholderTextColor={mobileTheme.mutedSoft}
+                      style={styles.textArea}
                     />
-                  ))}
+                  </View>
+
+                  {canReportOrganizer ? (
+                    <View style={styles.blockSection}>
+                      <Text style={styles.label}>Organizer</Text>
+                      <Pressable
+                        onPress={() => blockOrganizer().catch(() => undefined)}
+                        disabled={submitting || blocking}
+                        style={styles.blockButton}
+                      >
+                        {blocking ? (
+                          <ActivityIndicator color={mobileTheme.danger} />
+                        ) : (
+                          <Text style={styles.blockButtonText}>Block organizer</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </ScrollView>
+
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+
+                <View style={styles.actions}>
+                  <Pressable onPress={resetAndClose} disabled={submitting || blocking} style={styles.secondaryButton}>
+                    <Text style={styles.secondaryButtonText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => submit().catch(() => undefined)}
+                    disabled={submitting || blocking}
+                    style={styles.primaryButton}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color={mobileTheme.white} />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Submit report</Text>
+                    )}
+                  </Pressable>
                 </View>
               </View>
-
-              <View style={styles.section}>
-                <Text style={styles.label}>Details optional</Text>
-                <TextInput
-                  value={details}
-                  onChangeText={setDetails}
-                  multiline
-                  maxLength={1000}
-                  placeholder="Add anything reviewers should know."
-                  placeholderTextColor={mobileTheme.mutedSoft}
-                  style={styles.textArea}
-                />
-              </View>
-
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <View style={styles.actions}>
-                <Pressable onPress={resetAndClose} disabled={submitting} style={styles.secondaryButton}>
-                  <Text style={styles.secondaryButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable onPress={() => submit().catch(() => undefined)} disabled={submitting} style={styles.primaryButton}>
-                  {submitting ? (
-                    <ActivityIndicator color={mobileTheme.white} />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>Submit report</Text>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </View>
-      </View>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -148,6 +217,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  keyboardView: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
   sheet: {
     maxHeight: "88%",
@@ -174,7 +247,15 @@ const styles = StyleSheet.create({
   },
   form: {
     marginTop: 18,
+    minHeight: 0,
     gap: 16,
+  },
+  scrollContent: {
+    gap: 16,
+    paddingBottom: 4,
+  },
+  scrollArea: {
+    flexShrink: 1,
   },
   section: {
     gap: 8,
@@ -229,6 +310,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlignVertical: "top",
+  },
+  blockSection: {
+    gap: 8,
+  },
+  blockButton: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: mobileTheme.dangerBorder,
+    backgroundColor: mobileTheme.dangerSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  blockButtonText: {
+    color: mobileTheme.danger,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "800",
   },
   error: {
     color: mobileTheme.danger,

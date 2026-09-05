@@ -15,6 +15,14 @@ export const reportReasons = [
 export type ReportReason = (typeof reportReasons)[number]["value"];
 export type ReportTarget = "activity" | "organizer";
 
+export function canReportActivity(activityName: string) {
+  return activityName !== "Activity unavailable";
+}
+
+export function canReportOrganizer(createdBy: string | null | undefined, currentUserId: string | null | undefined) {
+  return Boolean(createdBy && currentUserId && createdBy !== currentUserId);
+}
+
 export async function submitActivityReport(input: {
   activityId: string;
   target: ReportTarget;
@@ -26,6 +34,26 @@ export async function submitActivityReport(input: {
     report_target: input.target,
     report_reason: input.reason,
     report_details: input.details.trim() || null,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function blockActivityOrganizer(activityId: string) {
+  const { error } = await supabase.rpc("block_activity_organizer", {
+    target_activity_id: activityId,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function unblockUser(userId: string) {
+  const { error } = await supabase.rpc("unblock_user", {
+    target_user_id: userId,
   });
 
   if (error) {

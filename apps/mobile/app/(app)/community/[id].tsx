@@ -17,6 +17,7 @@ import {
   type CommunityActivitiesClient,
 } from "../../../lib/community-activities";
 import { updateCommunityDisplayName } from "../../../lib/display-name";
+import { canReportOrganizer } from "../../../lib/reports";
 
 export default function CommunityPage() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -230,7 +231,7 @@ export default function CommunityPage() {
           </MobileCard>
         ) : activities.length ? (
           activities.map((activity) => {
-            const canReport = Boolean(activity.created_by && activity.created_by !== profile?.id);
+            const canReportOrganizerForItem = canReportOrganizer(activity.created_by, profile?.id);
             return (
               <MobileCard key={activity.id}>
                 <View style={styles.cardHeader}>
@@ -240,22 +241,18 @@ export default function CommunityPage() {
                   </View>
                   <View style={styles.cardActions}>
                     <MobileStatusChip label={activity.visibility === "anyone_with_code" ? "Anyone with code" : "Members only"} tone="neutral" />
-                    {canReport ? (
-                      <Pressable onPress={() => setReportingActivity(activity)} style={styles.reportButton}>
-                        <Text style={styles.reportButtonText}>Report</Text>
-                      </Pressable>
-                    ) : null}
+                    <Pressable onPress={() => setReportingActivity(activity)} style={styles.reportButton}>
+                      <Text style={styles.reportButtonText}>Report</Text>
+                    </Pressable>
                   </View>
                 </View>
-                {canReport ? (
-                  <ActivityReportModal
-                    activityId={activity.id}
-                    activityName={activity.name}
-                    canReportOrganizer={canReport}
-                    visible={reportingActivity?.id === activity.id}
-                    onClose={() => setReportingActivity(null)}
-                  />
-                ) : null}
+                <ActivityReportModal
+                  activityId={activity.id}
+                  activityName={activity.name}
+                  canReportOrganizer={canReportOrganizerForItem}
+                  visible={reportingActivity?.id === activity.id}
+                  onClose={() => setReportingActivity(null)}
+                />
               </MobileCard>
             );
           })

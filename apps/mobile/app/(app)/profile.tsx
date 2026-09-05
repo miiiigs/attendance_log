@@ -16,8 +16,14 @@ import {
 import { changeMobilePassword } from "../../lib/account";
 import { QRLOG_DELETE_ACCOUNT_URL, QRLOG_PRIVACY_POLICY_URL } from "../../lib/compliance-links";
 import { updateGlobalDisplayName } from "../../lib/display-name";
+import { unblockUser } from "../../lib/reports";
 import { supabase } from "../../lib/supabase/client";
 import { useAuth } from "../../providers/auth-provider";
+
+interface BlockedOrganizer {
+  blocked_user_id: string;
+  created_at: string;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -33,6 +39,10 @@ export default function ProfileScreen() {
   const [nameLoading, setNameLoading] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState<string | null>(null);
+  const [blockedOrganizers, setBlockedOrganizers] = useState<BlockedOrganizer[]>([]);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const [blocksError, setBlocksError] = useState<string | null>(null);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // Reset password fields when switching between guest/registered states.
@@ -45,6 +55,51 @@ export default function ProfileScreen() {
     setNameInput("");
     setNameError(null);
     setNameSuccess(null);
+    setBlockedOrganizers([]);
+    setBlocksError(null);
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      return;
+    }
+
+    const profileId = profile.id;
+    let active = true;
+
+    async function loadBlockedOrganizers() {
+      setBlocksLoading(true);
+      setBlocksError(null);
+      const { data, error: queryError } = await supabase
+        .from("user_blocks")
+        .select("blocked_user_id, created_at")
+        .eq("blocker_user_id", profileId)
+        .order("created_at", { ascending: false });
+
+      if (!active) {
+        return;
+      }
+
+      if (queryError) {
+        setBlocksError("Unable to load blocked organizers.");
+        setBlocksLoading(false);
+        return;
+      }
+
+      setBlockedOrganizers((data ?? []) as BlockedOrganizer[]);
+      setBlocksLoading(false);
+    }
+
+    loadBlockedOrganizers().catch(() => {
+      if (active) {
+        setBlocksError("Unable to load blocked organizers.");
+        setBlocksLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, [profile?.id]);
 
   if (!profile) {
@@ -114,6 +169,19 @@ export default function ProfileScreen() {
 
   function openExternalUrl(url: string) {
     Linking.openURL(url).catch(() => undefined);
+  }
+
+  async function handleUnblock(userId: string) {
+    setUnblockingUserId(userId);
+    setBlocksError(null);
+    try {
+      await unblockUser(userId);
+      setBlockedOrganizers((items) => items.filter((item) => item.blocked_user_id !== userId));
+    } catch {
+      setBlocksError("Unable to unblock organizer. Please try again.");
+    } finally {
+      setUnblockingUserId(null);
+    }
   }
 
   return (
@@ -310,6 +378,36 @@ export default function ProfileScreen() {
               <Text style={styles.deleteLinkText}>Delete Account</Text>
             </Pressable>
           ) : null}
+        </View>
+      </MobileCard>
+
+      <MobileCard>
+        <MobileLabel>Blocked organizers</MobileLabel>
+        <View style={styles.blockedStack}>
+          {blocksLoading ? (
+            <ActivityIndicator color={mobileTheme.accent} />
+          ) : blocksError ? (
+            <Text style={styles.errorText}>{blocksError}</Text>
+          ) : blockedOrganizers.length ? (
+            blockedOrganizers.map((item, index) => (
+              <View key={item.blocked_user_id} style={styles.blockedRow}>
+                <Text style={styles.blockedLabel}>Blocked organizer {index + 1}</Text>
+                <Pressable
+                  onPress={() => handleUnblock(item.blocked_user_id).catch(() => undefined)}
+                  disabled={unblockingUserId === item.blocked_user_id}
+                  style={({ pressed }) => [styles.unblockButton, pressed ? styles.pressed : null]}
+                >
+                  {unblockingUserId === item.blocked_user_id ? (
+                    <ActivityIndicator color={mobileTheme.accent} />
+                  ) : (
+                    <Text style={styles.unblockButtonText}>Unblock</Text>
+                  )}
+                </Pressable>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.blockedEmpty}>No blocked organizers.</Text>
+          )}
         </View>
       </MobileCard>
 
@@ -563,5 +661,48 @@ const styles = StyleSheet.create({
     color: mobileTheme.danger,
     fontSize: 14,
     fontWeight: "700",
+  },
+  blockedStack: {
+    marginTop: 14,
+    gap: 10,
+  },
+  blockedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panelSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  blockedLabel: {
+    flex: 1,
+    color: mobileTheme.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  blockedEmpty: {
+    color: mobileTheme.muted,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  unblockButton: {
+    minHeight: 40,
+    minWidth: 88,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: mobileTheme.border,
+    backgroundColor: mobileTheme.panel,
+    paddingHorizontal: 12,
+  },
+  unblockButtonText: {
+    color: mobileTheme.accent,
+    fontSize: 13,
+    fontWeight: "800",
   },
 });
