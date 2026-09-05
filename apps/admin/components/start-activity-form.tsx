@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Play, Zap } from "lucide-react";
 import { ButtonSpinner } from "./button-spinner";
 
@@ -9,6 +10,7 @@ export function StartActivityForm({ slug }: { slug: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"community_only" | "anyone_with_code">("community_only");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isRoutePending, startTransition] = useTransition();
@@ -20,6 +22,11 @@ export function StartActivityForm({ slug }: { slug: string }) {
       return;
     }
 
+    if (!acceptedTerms) {
+      setError("You must agree to the Terms of Use and Acceptable Use Policy before creating an activity.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -27,7 +34,7 @@ export function StartActivityForm({ slug }: { slug: string }) {
       const response = await fetch(`/api/org/${slug}/activities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, visibility }),
+        body: JSON.stringify({ name, visibility, acceptedTerms }),
       });
       const result = (await response.json()) as { error?: string; ok?: boolean };
 
@@ -89,6 +96,23 @@ export function StartActivityForm({ slug }: { slug: string }) {
           </label>
         </div>
       </div>
+
+      <label className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(event) => setAcceptedTerms(event.target.checked)}
+          className="mt-1"
+          data-testid="activity-terms-checkbox"
+        />
+        <span className="text-sm leading-6 text-[var(--muted)]">
+          I agree to the{" "}
+          <Link href="/terms" className="font-semibold text-[var(--accent)] underline underline-offset-4">
+            Terms of Use and Acceptable Use Policy
+          </Link>
+          .
+        </span>
+      </label>
 
       {error ? (
         <p className="rounded-2xl border border-[#fecaca] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">{error}</p>

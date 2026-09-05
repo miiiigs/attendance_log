@@ -137,7 +137,7 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.create_activity(text, uuid, public.activity_visibility)', 'execute'),
+  not has_function_privilege('anon', 'public.create_activity(text, uuid, public.activity_visibility, boolean)', 'execute'),
   'anon cannot execute create_activity'
 );
 
@@ -304,7 +304,7 @@ select throws_ok(
 
 -- create_activity targets the explicitly supplied organization.
 select lives_ok(
-  $$ select * from public.create_activity('Scoped Activity', 'bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.create_activity('Scoped Activity', 'bbbbbbb1-0000-0000-0000-000000000001', accepted_terms => true); $$,
   'organization admin can create an activity for an explicit organization'
 );
 
@@ -324,7 +324,7 @@ select is(
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
 
 select throws_ok(
-  $$ select * from public.create_activity('Sneaky', 'bbbbbbb1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.create_activity('Sneaky', 'bbbbbbb1-0000-0000-0000-000000000001', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'plain member cannot create activities'

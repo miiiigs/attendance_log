@@ -37,6 +37,9 @@ function getErrorMessage(reason: unknown) {
     if (reason.message === "Activity already completed.") {
       return "Activity already completed. Your activity log for this activity already has both Time In and Time Out.";
     }
+    if (reason.message === "Activity is unavailable.") {
+      return "This activity is unavailable. Your attendance was not recorded.";
+    }
     return reason.message;
   }
 

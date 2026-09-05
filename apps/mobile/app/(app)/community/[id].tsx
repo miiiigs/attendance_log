@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { formatDateInTimeZone, getDisplayName } from "@attendance/shared";
 import { MobileCard, MobileHeading, MobileLabel, MobileShell, MobileStatusChip, mobileTheme } from "../../../components/mobile-ui";
 import { OrganizationLogo } from "../../../components/branding";
+import { ActivityReportModal } from "../../../components/activity-report-modal";
 import { useAuth } from "../../../providers/auth-provider";
 import { supabase } from "../../../lib/supabase/client";
 import { getOrgTimezone } from "../../../lib/config";
@@ -16,12 +17,14 @@ import {
   type CommunityActivitiesClient,
 } from "../../../lib/community-activities";
 import { updateCommunityDisplayName } from "../../../lib/display-name";
+import { canReportOrganizer } from "../../../lib/reports";
 
 export default function CommunityPage() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
   const { profile, memberships, loading: authLoading, refreshSessionContext } = useAuth();
   const [activities, setActivities] = useState<CommunityActivity[]>([]);
+  const [reportingActivity, setReportingActivity] = useState<CommunityActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -227,17 +230,32 @@ export default function CommunityPage() {
             <Text style={styles.errorText}>{error}</Text>
           </MobileCard>
         ) : activities.length ? (
-          activities.map((activity) => (
-            <MobileCard key={activity.id}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderBlock}>
-                  <Text style={styles.activityName}>{activity.name}</Text>
-                  <Text style={styles.dateMeta}>{formatDateInTimeZone(activity.started_at, timezone)}</Text>
+          activities.map((activity) => {
+            const canReportOrganizerForItem = canReportOrganizer(activity.created_by, profile?.id);
+            return (
+              <MobileCard key={activity.id}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardHeaderBlock}>
+                    <Text style={styles.activityName}>{activity.name}</Text>
+                    <Text style={styles.dateMeta}>{formatDateInTimeZone(activity.started_at, timezone)}</Text>
+                  </View>
+                  <View style={styles.cardActions}>
+                    <MobileStatusChip label={activity.visibility === "anyone_with_code" ? "Anyone with code" : "Members only"} tone="neutral" />
+                    <Pressable onPress={() => setReportingActivity(activity)} style={styles.reportButton}>
+                      <Text style={styles.reportButtonText}>Report</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <MobileStatusChip label={activity.visibility === "anyone_with_code" ? "Anyone with code" : "Members only"} tone="neutral" />
-              </View>
-            </MobileCard>
-          ))
+                <ActivityReportModal
+                  activityId={activity.id}
+                  activityName={activity.name}
+                  canReportOrganizer={canReportOrganizerForItem}
+                  visible={reportingActivity?.id === activity.id}
+                  onClose={() => setReportingActivity(null)}
+                />
+              </MobileCard>
+            );
+          })
         ) : (
           <MobileCard>
             <Text style={styles.empty}>No activities yet.</Text>
@@ -422,6 +440,19 @@ const styles = StyleSheet.create({
   },
   cardHeaderBlock: {
     flex: 1,
+  },
+  cardActions: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  reportButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  reportButtonText: {
+    color: mobileTheme.accent,
+    fontSize: 12,
+    fontWeight: "800",
   },
   activityName: {
     fontSize: 16,

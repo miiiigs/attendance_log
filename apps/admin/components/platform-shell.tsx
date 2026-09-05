@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Building2, ClipboardList, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCircle2, X } from "lucide-react";
+import { Building2, ClipboardList, Flag, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCircle2, X } from "lucide-react";
 import { ADMIN_PORTAL_NAME, APP_NAME, getFullName } from "@attendance/shared";
 import { AppLogo } from "./app-logo";
 import { LogoutButton } from "./logout-button";
@@ -12,6 +12,7 @@ const navigation = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/applications", label: "Applications", icon: ClipboardList },
   { href: "/admin/organizations", label: "Organizations", icon: Building2 },
+  { href: "/admin/reports", label: "Reports", icon: Flag },
 ];
 
 function Wordmark() {

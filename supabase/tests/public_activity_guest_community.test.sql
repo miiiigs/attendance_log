@@ -95,7 +95,7 @@ select is(
 );
 
 select throws_ok(
-  $$ select * from public.create_public_activity('Guest Sneaky Activity'); $$,
+  $$ select * from public.create_public_activity('Guest Sneaky Activity', true); $$,
   'P0001',
   'Create an account and verify your email to create activities.',
   'a guest cannot create an activity'
@@ -109,7 +109,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$ select * from public.create_activity('Sneaky', 'ccccccc1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.create_activity('Sneaky', 'ccccccc1-0000-0000-0000-000000000001', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'a guest cannot create a Community activity'
@@ -128,7 +128,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000006', true); -- unverifiedU
 
 select throws_ok(
-  $$ select * from public.create_public_activity('Unverified Activity'); $$,
+  $$ select * from public.create_public_activity('Unverified Activity', true); $$,
   'P0001',
   'Create an account and verify your email to create activities.',
   'an unverified email-link state cannot create an activity'
@@ -147,7 +147,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000005', true); -- registeredR
 
 select lives_ok(
-  $$ select * from public.create_public_activity('Public Seminar'); $$,
+  $$ select * from public.create_public_activity('Public Seminar', true); $$,
   'a verified Community-less user can create a public activity'
 );
 
@@ -176,7 +176,7 @@ select is(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true); -- adminC
 
 select lives_ok(
-  $$ select * from public.create_activity('Internal Staff Meeting', 'ccccccc1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.create_activity('Internal Staff Meeting', 'ccccccc1-0000-0000-0000-000000000001', accepted_terms => true); $$,
   'a Community admin can create an activity under their Community'
 );
 
@@ -195,7 +195,7 @@ select is(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000003', true); -- adminD
 
 select lives_ok(
-  $$ select * from public.create_activity('Public Orientation', 'ccccccc2-0000-0000-0000-000000000002', 'anyone_with_code'); $$,
+  $$ select * from public.create_activity('Public Orientation', 'ccccccc2-0000-0000-0000-000000000002', 'anyone_with_code', true); $$,
   'a Community admin can create an anyone_with_code activity'
 );
 
@@ -217,7 +217,7 @@ select is(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', true); -- memberC
 
 select throws_ok(
-  $$ select * from public.create_activity('Sneaky', 'ccccccc1-0000-0000-0000-000000000001'); $$,
+  $$ select * from public.create_activity('Sneaky', 'ccccccc1-0000-0000-0000-000000000001', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'a plain member cannot create a Community activity'
@@ -226,7 +226,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true); -- adminC
 
 select throws_ok(
-  $$ select * from public.create_activity('Sneaky', 'ccccccc2-0000-0000-0000-000000000002'); $$,
+  $$ select * from public.create_activity('Sneaky', 'ccccccc2-0000-0000-0000-000000000002', accepted_terms => true); $$,
   'P0001',
   'Only organization administrators can create activities.',
   'an admin cannot create under a Community they do not administer'
@@ -433,7 +433,7 @@ select throws_ok(
 
 -- A Community member can still create a public activity (Public-only path).
 select lives_ok(
-  $$ select * from public.create_public_activity('Member Public Activity'); $$,
+  $$ select * from public.create_public_activity('Member Public Activity', true); $$,
   'a Community member can create a public activity'
 );
 
